@@ -123,51 +123,61 @@ class Epix100a(object):
         #memmap file
         self.fin=np.memmap(self.fname,dtype=np.int16,mode='r');
         
-    def frames(self, iframes):
-        iframes=np.asarray(iframes);
-        iframes=iframes[iframes<self.nframes];
-        return self.fin[fmap(self,iframes)];
-        
+    def frame(self, iframe):
+        print('get frame ' + str(iframe) + ' out of nframes ' + str(self.nframes))
+        #iframes=np.asarray(iframe);
+        #iframes=iframes[iframes<self.nframes];
+        return self.fin[fmap(self,iframe)];
+
     def close(self):
         del self.fin;
         
 class Binary(object):
-    def __init__(self,fname):
+    def __init__(self,fdata,fndata):
         #dump to binary
-        fndata=fname;
+        print('Initialize binary from ' + fdata)
+
         if (not os.path.isfile(fndata)):
-            fndatain=fndata.replace('/bin/','/');
-            datain=Epix100a(fndatain);
+
+            print('create Epix100a flat file ' + fndata + ' from ' + fdata)
+            
+            datain=Epix100a(fdata);
+
             #write header
             binheader=np.zeros(16).astype(np.uint32);
             binheader[0:6]=[datain.nframes, datain.my*datain.mx, datain.my, datain.mx, datain.nblocks, datain.nbcols];
             binheader.tofile(fndata);    
+
             #write data
             dataout=np.memmap(fndata,dtype=np.int16,mode='r+', shape=(datain.nframes,datain.my,datain.mx),offset=64);
             t0=time.clock();
             for iframe in range(datain.nframes):
-                dataout[iframe]=datain.frames(iframe);
+                dataout[iframe]=datain.frame(iframe);
                 if (iframe%100==0):
                     #progress(iframe,nframes,iframe);
-                    print str(iframe)+' - '+str(1000*(time.clock()-t0)/(iframe+1))+' ms. average frame: '+str(np.mean(datain.frames(iframe)));
+                    print str(iframe)+' - '+str(1000*(time.clock()-t0)/(iframe+1))+' ms. average frame: '+str(np.mean(datain.frame(iframe)));
             dataout.flush();
             
             del dataout;
             del datain;
+        
         #get nr of frames
+        else:
+            print(fndata + ' file already exists.')
         data=np.memmap(fndata,dtype=np.uint32,mode='r',shape=((64)),offset=0); 
         self.nframes=data[0]; self.nframesize=data[1]; self.my=data[2]; self.mx=data[3]; self.nblocks=data[4]; self.nbcols=data[5];
         self.data=np.memmap(fndata,dtype=np.int16,mode='c',shape=(self.nframes,self.my,self.mx),offset=64);
         
 class Dark(object):
-    def __init__(self, fndark, nblocksize):
+    def __init__(self, fdark, fndark, nblocksize):
         if (os.path.isfile(fndark+'-dark.npz')):
             npzfile=np.load(fndark+'-dark.npz');
             self.dmean=npzfile['dmean'];
             self.dstd=npzfile['dstd'];
             self.dbpm=npzfile['dbpm'];
         else:
-            dark=Binary(fndark);
+            print('Creating Binary from ' + fdark)
+            dark=Binary(fdark,fndark);
             nframes=dark.nframes; my=dark.my; mx=dark.mx;
             nblocks=nframes//nblocksize;
             
