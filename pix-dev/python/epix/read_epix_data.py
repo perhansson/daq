@@ -3,6 +3,7 @@
 Created on Wed Mar  2 11:02:07 2016
 
 @author: blaj
+@author: phansson
 """
 
 import sys
@@ -11,19 +12,21 @@ import numpy as np
 from scipy.sparse import lil_matrix,csr_matrix
 import time
 #from sklearn.neighbors import KernelDensity
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from epix import Dark, Binary, dropbadframes;
+import pix_utils as utils
 import argparse
-
+import epix_style
 
 def get_args():
     parser = argparse.ArgumentParser('ePix data reader.')
     parser.add_argument('--light','-l', required=True, help='Data file with exposure.')
     parser.add_argument('--dark','-d', required=True, help='Data file with no exposure (dark file).')
-    parser.add_argument('--tag','-t', default='flat', required=False)
-    
+    parser.add_argument('--tag','-t', default='flat',)
+    parser.add_argument('--maxframes','-m', type=int, default=-1)    
     args = parser.parse_args()
-    print args
+    print( args )
     return args
 
 
@@ -36,6 +39,9 @@ if __name__ == '__main__':
     print('Just Go')
 
     args = get_args()
+
+    plt.ion()
+    plt.ioff()
 
     fdark = args.dark
     fndark = get_flat_filename( fdark )
@@ -55,32 +61,13 @@ if __name__ == '__main__':
 
     #execfile("viridis.py")  #just a fancier color map; style to be beautified
 
-    def toint(a):
-        return np.rint(a).astype(np.int16);
 
-    def cmnoise(a):
-        noise=12; #12 ADUs
-        nframes=a.shape[0];
-        cm=np.zeros(nframes);
-        for iframe in range(nframes):
-            b=a[iframe,:,:];
-            b=b[abs(b)<noise];
-            cm[iframe]=np.median(b);
-        return cm;
-
-    #def kde_sklearn(x, x_grid, bandwidth, **kwargs):
-    #    """Kernel Density Estimation with Scikit-learn"""
-    #    kde_skl = KernelDensity(bandwidth=bandwidth, **kwargs)
-    #    kde_skl.fit(x[:, np.newaxis])
-    #    # score_samples() returns the log-likelihood of the samples
-    #    log_pdf = kde_skl.score_samples(x_grid[:, np.newaxis]);
-    #    return np.exp(log_pdf);
 
     #rank 0 is master, passes references, collects data, etc  
 
     #Get and broadcast dark
     if(rank==0):
-        print 'Opening file '+fdark+' ...';
+        print( 'Opening file '+fdark+' ...')
         dark=Dark(fdark,fndark,100);
         for irank in range(1,size):
             comm.send(dark,dest=irank,tag=1);
@@ -99,11 +86,12 @@ if __name__ == '__main__':
         dark=comm.recv(source=0,tag=2);
         data=Binary(fndata);
 
-    a=data.data;
-    a,index=dropbadframes(a);
-    a-=toint(dark.dmean);
-    print 'done reading and dropping bad frames';
-    nframes,my,mx=a.shape;
+    a = data.data;
+    a, index = dropbadframes(a);
+    a -= utils.toint(dark.dmean);
+    print( 'done reading and dropping bad frames')
+    nframes, my, mx = a.shape
+    print( 'nframes ', nframes, ' my ', my , ' mx ', mx)
 
     #calculate cm
     t0=time.clock();
@@ -111,9 +99,9 @@ if __name__ == '__main__':
     cm=np.zeros((nframes,nbanks));
     for ibank in range(nbanks):
         i1=ibank*ncpb;i2=(ibank+1)*ncpb;
-        cm[:,ibank]=cmnoise(a[:,:,i1:i2]);
+        cm[:,ibank]=utils.cmnoise(a[:,:,i1:i2]);
     if (rank==0):
-        print 'CM in '+str(time.clock()-t0)+' s';
+        print( 'CM in '+str(time.clock()-t0)+' s')
 
     #find singles using all processes
     fnsingles=fndata+'-singles';
@@ -130,7 +118,7 @@ if __name__ == '__main__':
                         if np.sum(b0[iy-1:iy+2,ix-1:ix+2])<=1:
                             b[iframe,iy*mx+ix]=a0[iy,ix];
             if (iframe%10==0):
-                print 'singles in frame '+str(iframe)+'/'+str(nframes)+' in '+str(1000*(time.clock()-t0)/(iframe+1))+' ms/frame';
+                print( 'singles in frame '+str(iframe)+'/'+str(nframes)+' in '+str(1000*(time.clock()-t0)/(iframe+1))+' ms/frame')
         b=csr_matrix(b);
         np.savez(fnsingles,data=b.data,indices=b.indices,indptr=b.indptr);
     else:
@@ -151,7 +139,7 @@ if __name__ == '__main__':
 
     plt.close("all");
 
-    fnamepdf=fpath+'out/report-'+os.path.basename( args.fdata )+'.pdf';
+    fnamepdf=os.path.join( os.path.split( fdata )[0],'report-'+os.path.basename( fdata )+'.pdf')
     #pp=PdfPages(fnamepdf);
 
     binsize=32;
@@ -164,10 +152,11 @@ if __name__ == '__main__':
     plt.figure(1,facecolor='white',figsize=(11,8.5),dpi=150);plt.clf();
     plt.step(x,ssp,where='mid');#plt.step(x,ssp,xx,yy,where='mid');
     plt.axis([0,8191,0,1.2*np.max(ssp[10:])]);
-    plt.title('Spectrum of Single Pixel Events - '+os.path.basename( args.fdata ));
+    plt.title('Spectrum of Single Pixel Events - '+os.path.basename( fdata ));
     plt.xlabel('Energy (ADU)');
     plt.ylabel('Spectrum (a.u.)');
     plt.legend(['Histogram (Bin Width '+str(binsize)+' ADUs)','Kernel Density Estimation']);
+
     #pp.savefig();
 
     #binsize=20;
@@ -194,8 +183,11 @@ if __name__ == '__main__':
     plt.figure(2,facecolor='white',figsize=(11,8.5),dpi=150);plt.clf();
     plt.imshow(bprofile,vmin=0,vmax=np.percentile(bprofile,98),interpolation='nearest');
     plt.colorbar();
-    plt.title('Beam Profile - '+os.path.basename( args.fdata ));
+    plt.title('Beam Profile - '+os.path.basename( fdata ));
     #pp.savefig();
+
+    epix_style.setup_color_map(plt)
+
 
     plt.figure(3,facecolor='white',figsize=(11,8.5),dpi=150);plt.clf();
     px=np.sum(bprofile,axis=0);px=px*my/np.max(px);
@@ -203,7 +195,7 @@ if __name__ == '__main__':
     plt.plot(np.arange(mx)*0.05,px*0.05);
     plt.plot(py*0.05,np.arange(my)*0.05);
     plt.axis([0,mx*0.05,0,my*0.05]);
-    plt.title('Beam Profile '+os.path.basename( args.fdata ));
+    plt.title('Beam Profile '+os.path.basename( fdata ));
     plt.xlabel('X Axis (mm)');
     plt.ylabel('Y Axis (mm)');
     plt.legend(['Projection on X','Projection on Y']);
@@ -220,10 +212,11 @@ if __name__ == '__main__':
 
     plt.figure(4,facecolor='white',figsize=(11,8.5),dpi=150);plt.clf();
     plt.plot(index,inorm,'.');plt.axis([0, nframes, 0, np.max(inorm)]);
-    plt.title('Trace - '+os.path.basename( args.fdata ));
+    plt.title('Trace - '+os.path.basename( fdata ));
     plt.xlabel('Sample (at ~5 Hz)');
     plt.ylabel('Intensity (Electrons/Frame)');
     #pp.savefig();
+
 
     #i=np.sort(i,axis=0);
     #plt.figure(2);plt.clf();plt.plot(i,'.');
@@ -258,66 +251,17 @@ if __name__ == '__main__':
     #pp.close();
 
 
-    def generalfit(x,a1,a2,a3,a4,a5):
-        return (a1*x+a2*x**2)/(a3+a4*x+a5*x**2);
-
-    def Iextrap(I,n):
-        I1=generalfit(I,88.624,-20.604,95.091,-27.3789,1.047487);
-        I2=np.random.poisson(I1);
-        return I2
-
-    def cheapphotons(a0,E):
-        Estart=E/4;
-        Enoise=E/4;
-        r=1;
-        pm0=np.maximum(0,a0//E);
-        a1=a0-pm0*E;
-        a1r=a1.ravel();
-        idx,=np.where(a1r>Estart);
-        idx2=np.flipud(np.argsort(a1r[idx]));
-        pm1=np.zeros_like(pm0);
-        for i in idx[idx2]:
-            ix=i%mx; iy=i//mx;
-            ix1=np.maximum(0,ix-r); ix2=np.minimum(mx,ix+r+1);
-            iy1=np.maximum(0,iy-r); iy2=np.minimum(my,iy+r+1);
-            tl=np.sum(a1[iy1:iy,ix1:ix]);
-            tr=np.sum(a1[iy1:iy,ix:ix2]);
-            bl=np.sum(a1[iy:iy2,ix1:ix]);
-            br=np.sum(a1[iy:iy2,ix:ix2]);
-            idx3=np.argsort(np.abs(a1[iy,ix]-np.asarray([tl,tr,bl,br])));
-            pm1[iy,ix]+=1;
-            if(idx3[0]==0):
-                a1[iy1:iy,ix1:ix]=0;
-            elif(idx3[0]==1):
-                a1[iy1:iy,ix:ix2]=0;
-            elif(idx3[0]==2):
-                a1[iy:iy2,ix1:ix]=0;
-            else:
-                a1[iy:iy2,ix:ix2]=0;
-        pm=pm0+pm1;
-        idx2,=np.where(pm.ravel()>=4);    
-        pm1=np.zeros_like(pm0);
-        for i in idx2:
-            r=3;
-            ix=i%mx; iy=i//mx;
-            ix1=np.maximum(0,ix-r); ix2=np.minimum(mx,ix+r+1);
-            iy1=np.maximum(0,iy-r); iy2=np.minimum(my,iy+r+1);
-            bmean=np.mean(pm[iy1:iy2,ix1:ix2]);
-            pm1[iy,ix]=Iextrap(bmean,5);
-            print i, bmean,pm[iy,ix],pm1[iy,ix];
-        pm+=pm1;
-        return pm;
-
     #Fast animation
     #plt.close("all");
     #aroi=np.array([354,0,384,0]);
     #nroi=(aroi[1]-aroi[0])*(aroi[3]-aroi[2]);
 
     fig1=plt.figure(7,facecolor='white');plt.clf();
-    ax1=fig1.add_subplot(1,1,1);
+    ax1=fig1.add_subplot(111);
     #ax1=fig1.add_subplot(1,2,1);
     obj1=ax1.imshow(a[0],vmin=0,vmax=2,interpolation='nearest',cmap='viridis');
     fig1.colorbar(obj1);
+    
 
     #ax2=fig1.add_subplot(1,2,2);
     #line1,=ax2.step(np.arange(5),np.zeros(5),where='mid');
@@ -327,23 +271,31 @@ if __name__ == '__main__':
     #list,=np.where(i==0);
     #for iframe in list:
     for iframe in range(nframes):
+
         #a0=(a[iframe]+Ee//2)//Ee;
         #a0=np.reshape(b[iframe].todense(),(my,mx));
         #frame=a[iframe];
 
-        frame=cheapphotons(a[iframe],2808);
-        obj1.set_data(frame);
+        frame=utils.cheapphotons(a[iframe], 2808, my, mx);
+
+        obj1.set_data(a[iframe]);
+        #obj1.set_data(frame);
         #obj1.set_data(a[iframe]);
-        ax1.set_title(os.path.basename( args.fdata)+' '+str(iframe));
+        ax1.set_title(os.path.basename( fdata)+' '+str(iframe));
+        
 
         #hist1=np.bincount(np.minimum(frame,4).ravel(),minlength=5);
         #hist2=np.bincount(frame.ravel(),minlength=9);
         #line1.set_ydata(hist1[:5]);
         #line2.set_ydata(hist2[:9]);
 
-        plt.draw();
+        #plt.draw()
+        fig1.canvas.draw()
+        #plt.show()
+
+        #time.sleep(1);
         time.sleep(0.01);
 
-    print 'RANK '+str(rank)+' DONE!';
+    print( 'RANK '+str(rank)+' DONE!')
 
 
