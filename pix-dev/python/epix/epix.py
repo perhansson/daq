@@ -9,9 +9,6 @@ Created on Mon Feb 29 08:43:35 2016
 import numpy as np;
 import os.path;
 import time;
-
-def toint(a):
-    return np.rint(a).astype(np.int16);
     
 def dmap(fmt):
     nb=16;nbs=96;
@@ -58,7 +55,7 @@ def dropbadframes(a):
     if ndropped>0:
         a=np.delete(a,idrop[0:ndropped],0);
         idx=np.delete(idx,idrop[0:ndropped]);
-    print 'Dropped '+str(ndropped)+' bad frames in '+str(time.clock()-t0)+' s';
+    print ('Dropped '+str(ndropped)+' bad frames in '+str(time.clock()-t0)+' s')
     return a,idx;
     
 class Epix100a(object):
@@ -107,11 +104,11 @@ class Epix100a(object):
                     #print nframes;
                 else:
                     nerrors=nerrors+1;
-                    print nframes,nerrors,fs;
+                    print (nframes,nerrors,fs)
                 fin.seek(4*fs,1);
                 idx=idx+2*fs+2;
         except IndexError:
-            print ' - indexing found '+str(nframes)+' frames.';
+            print (' - indexing found '+str(nframes)+' frames.')
             #print 'index= '+str(idx);
         finally:
             fin.close();
@@ -155,7 +152,7 @@ class Binary(object):
                 dataout[iframe]=datain.frame(iframe);
                 if (iframe%100==0):
                     #progress(iframe,nframes,iframe);
-                    print str(iframe)+' - '+str(1000*(time.clock()-t0)/(iframe+1))+' ms. average frame: '+str(np.mean(datain.frame(iframe)));
+                    print (str(iframe)+' - '+str(1000*(time.clock()-t0)/(iframe+1))+' ms. average frame: '+str(np.mean(datain.frame(iframe))))
             dataout.flush();
             
             del dataout;
@@ -187,7 +184,7 @@ class Dark(object):
                 t0=time.clock();
                 a=dark.data[iblock*nblocksize:(iblock+1)*nblocksize];
                 a,idx=dropbadframes(a);
-                print '- read block, dropped bad, subtracted dark in '+str(time.clock()-t0)+'s';
+                print ('- read block, dropped bad, subtracted dark in '+str(time.clock()-t0)+'s')
                 nfb=a.shape[0];                
                 bmed[iblock,:,:]=np.median(a,axis=0);
                 bstd[iblock,:,:]=np.std(a,axis=0);
