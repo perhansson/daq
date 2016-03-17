@@ -30,9 +30,6 @@ def get_args():
     return args
 
 
-def get_flat_filename(name):
-    return  os.path.join( os.path.split( name )[0],  os.path.splitext(  os.path.basename( name ) )[0] + '_' + args.tag +  os.path.splitext(  os.path.basename( name ) )[1] )
-
     
 
 if __name__ == '__main__':
@@ -41,12 +38,12 @@ if __name__ == '__main__':
     args = get_args()
 
     plt.ion()
-    plt.ioff()
+    #plt.ioff()
 
     fdark = args.dark
-    fndark = get_flat_filename( fdark )
+    fndark = utils.get_flat_filename( fdark, args.tag )
     fdata = args.light
-    fndata = get_flat_filename( fdata )
+    fndata = utils.get_flat_filename( fdata, args.tag )
 
     
 

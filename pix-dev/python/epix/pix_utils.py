@@ -7,6 +7,10 @@ Created on Mon Feb 29 08:43:35 2016
 """
 
 import numpy as np
+import os.path
+
+def get_flat_filename(name,tag):
+    return  os.path.join( os.path.split( name )[0],  os.path.splitext(  os.path.basename( name ) )[0] + '_' + tag +  os.path.splitext(  os.path.basename( name ) )[1] )
 
 
 def toint(a):
