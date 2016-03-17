@@ -61,9 +61,7 @@ def dropbadframes(a):
 class Epix100a(object):
     def __init__(self,fname):
         self.fname=fname;
-        if (not os.path.isfile(fname)):
-            raise ValueError('File not found: '+fname);
-        
+
         #define format - ugly mess, clean up properly
         self.nblocksize=120;
         self.ny=708; self.nx=768;
@@ -88,6 +86,10 @@ class Epix100a(object):
         #create LUT
         self.f1map=roi(dmap(self.fmt));
         self.my=self.f1map.shape[0]; self.mx=self.f1map.shape[1];
+
+        # throw the error after initializing (yeah, not great...)
+        if (not os.path.isfile(fname)):
+            raise ValueError('File not found: '+fname);
         
         #read index
         index=np.zeros((65536)).astype(np.uint64);
