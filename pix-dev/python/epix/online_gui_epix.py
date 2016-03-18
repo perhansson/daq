@@ -19,7 +19,12 @@ class EpixEsaForm(QMainWindow):
         if self.pyplot_ext:
             plt.ion()
 
+        # run state
         self.run_state = 'Undefined'
+
+        # Selected ASIC
+        # -1 if all of them
+        self.select_asic = -1
         
         # hold data
         self.frame = None
@@ -42,8 +47,6 @@ class EpixEsaForm(QMainWindow):
         self.img_ext = None
         self.on_draw()
 
-        # ASIC to be drawn (bit mask)
-        self.selected_asics = 0xf
         
 
     def newDataFrame(self,data_frame):
@@ -97,6 +100,23 @@ class EpixEsaForm(QMainWindow):
             self.emit(SIGNAL("integrationCount"), self.integration_count)
         except ValueError:
             print('\n\n========= WARNING, bad integration input \"', self.textbox_integration.text(), '\"\n Need to be an integer only')
+
+
+    def on_select_asic(self):
+        """ update the selected asic"""
+        print('on select asic')
+        try:
+            s = str(self.combo_select_asic.currentText())
+            if s == 'ALL':
+                self.select_asic = -1
+            else:
+                c = int(s)
+                self.select_asic = c
+            # should send this to the reader to avoid reading all of the data
+            # FIX THIS.
+            #self.emit(SIGNAL("selectASIC"), self.select_asic)
+        except ValueError:
+            print('\n\n========= WARNING, bad ASIC selection input \"', str(self.combo_select_asic.currentText()), '\"\n Need to be an integer only')
     
     
     def on_draw(self):
@@ -111,9 +131,9 @@ class EpixEsaForm(QMainWindow):
 
 
             # data to be plotted
-            #data = self.frame.get_data(self.select_asic)
+            data = self.frame.get_data(self.select_asic)
             #data = self.frame.super_rows 
-            data = self.frame.super_rows[:EpixFrame.ny/2 , EpixFrame.nx/2:]
+            #data = self.frame.super_rows[:EpixFrame.ny/2 , EpixFrame.nx/2:]
             
 
             # use external canvas or not
@@ -224,28 +244,47 @@ class EpixEsaForm(QMainWindow):
         textbox_integration_label = QLabel('Integrate frames (#):')
         self.textbox_integration = QLineEdit()
         self.textbox_integration.setText('1')
-        self.textbox_integration.setMaximumWidth(20)
+        self.textbox_integration.setMaximumWidth(30)
         self.connect(self.textbox_integration, SIGNAL('editingFinished ()'), self.on_integration)
+
+        textbox_select_asic_label = QLabel('Select ASIC (0-3, -1 for ALL):')
+        self.combo_select_asic = QComboBox(self)
+        for i in range(-1,EpixFrame.n_asics):
+            if i == -1:                
+                self.combo_select_asic.addItem("ALL")
+            else:
+                self.combo_select_asic.addItem(str(i))        
+        self.combo_select_asic.setCurrentIndex(0)
+        self.combo_select_asic.currentIndexChanged['QString'].connect(self.on_select_asic)
         
         self.acq_button = QPushButton("&Acquire Start/Stop")
         self.connect(self.acq_button, SIGNAL('clicked()'), self.on_acq)
-        
+
+        textbox_plot_options_label = QLabel('Plotting options:')
         self.grid_cb = QCheckBox("Show &Grid")
         self.grid_cb.setChecked(False)
         self.connect(self.grid_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         # Layout with box sizers         
-        hbox = QHBoxLayout()
+        hbox_cntrl = QHBoxLayout()
         
-        for w in [  textbox_integration_label, self.textbox_integration, self.acq_button, self.grid_cb ]:
-            hbox.addWidget(w)
-            hbox.setAlignment(w, Qt.AlignVCenter)
+        for w in [  textbox_integration_label, self.textbox_integration,
+                    textbox_select_asic_label, self.combo_select_asic,
+                    self.acq_button]:
+            hbox_cntrl.addWidget(w)
+            hbox_cntrl.setAlignment(w, Qt.AlignLeft) #Center)
+        
+        hbox_plotting = QHBoxLayout()
+        for w in [  textbox_plot_options_label, self.grid_cb ]:
+            hbox_plotting.addWidget(w)
+            hbox_plotting.setAlignment(w, Qt.AlignLeft) #Qt.AlignVCenter)
         
         vbox = QVBoxLayout()
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
         vbox.addWidget( self.textbox )
-        vbox.addLayout(hbox)
+        vbox.addLayout(hbox_cntrl)
+        vbox.addLayout(hbox_plotting)
         
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
@@ -262,8 +301,9 @@ class EpixEsaForm(QMainWindow):
             self.statusBar().showMessage('Saved to %s' % path, 2000)
     
     def create_status_bar(self):
-        self.status_text = QLabel('Run status: ' + self.run_state)
-        self.statusBar().addWidget(self.status_text, 1)
+        self.status_text = QString('Run status: ' + self.run_state)
+        #self.statusBar().addWidget(self.status_text, 1)
+        self.statusBar().showMessage(self.status_text, 0)
 
 
     def add_actions(self, target, actions):

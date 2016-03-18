@@ -44,7 +44,8 @@ class EpixReader(QThread):
         else:
             self.state = state
             self.emit(SIGNAL("newState"),self.state)
-    
+
+
     def change_state(self):
         """ Change state of the GUI acquizition"""
         

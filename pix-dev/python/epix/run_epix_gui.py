@@ -41,7 +41,6 @@ def main():
         #epixReader.do_dark_frame_subtraction = True
 
     
-
     # Connect data to the GUI
     form.connect(epixReader,SIGNAL('newDataFrame'),form.newDataFrame)
     form.connect(epixReader,SIGNAL('newState'),form.newState)
@@ -59,7 +58,7 @@ def main():
     form.show()
 
     # start the acquizition of frame (should go into GUI button I guess)
-    epixReader.set_state('Running')
+    #epixReader.set_state('Running')
 
     # run the app
     sys.exit( app.exec_() )

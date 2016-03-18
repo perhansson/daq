@@ -22,6 +22,7 @@ class EpixFrame(object):
     #nbcols=92;
     npix=nx*ny;
     framesize= n_head + n_super_rows*len_super_row/2 + n_tps_words + n_footer_words
+    n_asics = 4
 
     def __init__(self,data):
         # save the data in raw format
@@ -41,14 +42,23 @@ class EpixFrame(object):
         """ Return a tuple with indices"""
         return 0
         
-    def get_data(self,asic_mask):
+    def get_data(self,asic):
         """Return data"""
-        asics = []
-        for i in range(4):
-            if ( asic_mask >> i & 0x1) == 1:
-                asics.append(i)
-        print('selected asics ', asics)
-
+        # see if we want all of them
+        if asic < 0:            
+            return self.super_rows
+        elif asic == 0:            
+            return self.super_rows[EpixFrame.ny/2: , EpixFrame.nx/2:]
+        elif asic == 1:            
+            return self.super_rows[:EpixFrame.ny/2 , EpixFrame.nx/2:]
+        elif asic == 2:            
+            return self.super_rows[:EpixFrame.ny/2 , :EpixFrame.nx/2]
+        elif asic == 3:            
+            return self.super_rows[EpixFrame.ny/2: , :EpixFrame.nx/2]
+        else:
+            print('ERROR invalid asic nr \"', asic, '\", must be less than ', EpixFrame.n_asics )
+    
+                
     def __get_unscrambled_row(self, super_row):      
         k = super_row/2
         r = super_row%2
