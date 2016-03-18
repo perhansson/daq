@@ -8,6 +8,7 @@ from epix import Epix100a, fmap
 
 
 
+
 class EpixFrame(object):
     nx = 768
     ny = 708
@@ -23,19 +24,77 @@ class EpixFrame(object):
     framesize= n_head + n_super_rows*len_super_row/2 + n_tps_words + n_footer_words
 
     def __init__(self,data):
+        # save the data in raw format
         self.raw_data = data
+
+        # store the data in super rows
         self.super_rows =  None
-        self.__set_super_rows()
+
+        # setup data in raw order
+        #self.__set_raw_super_rows()        
+
+        # setup data in unscrambled order
+        self.__set_super_rows()        
     
 
+    def __get_asic_indexes(self, asic_nr):
+        """ Return a tuple with indices"""
+        return 0
+        
+    def get_data(self,asic_mask):
+        """Return data"""
+        asics = []
+        for i in range(4):
+            if ( asic_mask >> i & 0x1) == 1:
+                asics.append(i)
+        print('selected asics ', asics)
+
+    def __get_unscrambled_row(self, super_row):      
+        k = super_row/2
+        r = super_row%2
+        if r != 0:
+            i = EpixFrame.ny/2 - ( k + r)
+        else:
+            i = EpixFrame.ny/2 + ( k + r)
+        return i
+        
     def __set_super_rows(self):
-        """ Organize into pixel super rows """
+        """ Organize into a pixel image """
+        #print('set super rows')
+        self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.uint16)
+
+        # read data super row by super row
+        #print('SR -> R') 
+        for i in range( EpixFrame.ny ):
+            # offset start with header words
+            offset_start = i*EpixFrame.nx/2 +  EpixFrame.n_head
+            offset_end = (i+1)*EpixFrame.nx/2 + EpixFrame.n_head
+
+            # get the correct id
+            idx = self.__get_unscrambled_row( i )
+
+            #print( i, ' -> ', idx)
+
+            # set the data
+            # pixel index along x
+            ix = 0
+            # loop over 32bit words
+            for val in self.raw_data[offset_start:offset_end]:
+                # bits[31:16]
+                self.super_rows[idx][ix] = ( (val >> 16) & 0xFFFF  )
+                ix += 1
+                # bits[15:0] 
+                self.super_rows[idx][ix] = ( val & 0xFFFF  )
+                ix += 1
+    
+    def __set_raw_super_rows(self):
+        """ Organize into raw super rows """
         #print('set super rows')
         self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.uint16)
         for i in range( EpixFrame.ny ):
-            self.__set_super_row(i)
+            self.__set_raw_super_row(i)
 
-    def __set_super_row(self,idx):
+    def __set_raw_super_row(self,idx):
         """ Read a super row pf pixel data """
 
         # offset start with header words
@@ -60,6 +119,16 @@ class EpixFrame(object):
 
         
         
+class EpixIntegratedFrame(EpixFrame):
+    """ Hold integrated EpixFrames"""
+    def __init__(self,data):
+        EpixFrame.__init__(self,data)
+        self.n = 1
+    
+    def add_frame(self, frame):
+        """Add the pixel data"""
+        self.super_rows += frame.super_rows
+        self.n += 1
 
 
 

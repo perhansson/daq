@@ -15,6 +15,12 @@ class EpixEsaForm(QMainWindow):
         QMainWindow.__init__(self, parent)
         self.setWindowTitle('ePix ESA Live Display')
 
+        self.pyplot_ext = False
+        if self.pyplot_ext:
+            plt.ion()
+
+        self.run_state = 'Undefined'
+        
         # hold data
         self.frame = None
 
@@ -33,9 +39,11 @@ class EpixEsaForm(QMainWindow):
 
         # image to be displayed
         self.img = None
-
+        self.img_ext = None
         self.on_draw()
 
+        # ASIC to be drawn (bit mask)
+        self.selected_asics = 0xf
         
 
     def newDataFrame(self,data_frame):
@@ -56,7 +64,12 @@ class EpixEsaForm(QMainWindow):
         else:
             print('draw it')
             self.on_draw()
-            
+
+    def newState(self,state_str):
+        self.run_state = state_str
+        #update GUI
+        self.statusBar().showMessage('Run status: ' + self.run_state)
+    
     def on_about(self):
         msg = """ ESA ePix online display
         """
@@ -70,42 +83,85 @@ class EpixEsaForm(QMainWindow):
 
 
     def on_acq(self):
-        """ starts or stop the acquisition of data"""
+        """ start or stop the acquisition of data"""
         print('on acq')
         self.emit(SIGNAL("acqState"),1)
+
+    def on_integration(self):
+        """ update the integration"""
+        print('on integration')
+        try:
+            str = unicode(self.textbox_integration.text())
+            c = int(str)
+            self.integration_count = c            
+            self.emit(SIGNAL("integrationCount"), self.integration_count)
+        except ValueError:
+            print('\n\n========= WARNING, bad integration input \"', self.textbox_integration.text(), '\"\n Need to be an integer only')
+    
     
     def on_draw(self):
         """ Redraws the figure
         """
 
+        print ('on_draw ')
+        
+
+        # check that there is a frame to be drawn
         if self.frame != None:
 
-            print ('on_draw data len ', len( self.frame.super_rows ))
 
             # data to be plotted
-            data = self.frame.super_rows #self.frame.super_rows[:3,:3]
-
-            #data = np.mean( data2, axis=1)
-            print ('data ', data)
+            #data = self.frame.get_data(self.select_asic)
+            #data = self.frame.super_rows 
+            data = self.frame.super_rows[:EpixFrame.ny/2 , EpixFrame.nx/2:]
             
-            # update status
-            self.textbox.setText('Redrawing figure')
 
-            self.axes.grid(self.grid_cb.isChecked())
-            self.axes.set_title('Frame ' + str( self.nframes ) );
+            # use external canvas or not
+            if self.pyplot_ext:
 
-            #self.axes.plot(data)
-            
-            if self.img:
-                self.img.set_data( data )
+                print ('external plots')
+
+                #data = np.mean( data2, axis=1)
+                print ('data ', data)
+
+                # update status
+                self.textbox.setText('Redrawing figure')
+
+                if self.img_ext:
+                    self.img_ext.set_data( data )
+                else:
+                    self.axes_ext.clear()        
+                    self.img_ext = self.axes_ext.imshow( data, interpolation='none' )
+
+                self.axes_ext.set_title('Frame ' + str( self.nframes ) )
+                self.fig_ext.canvas.draw()
+                print ('done drawing')
+                self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
+
             else:
-                self.axes.clear()        
-                self.img = self.axes.imshow( data, interpolation='none' )
-            
-            self.canvas.draw()
-            print ('done drawing')
-            self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
-        
+
+
+                #data = np.mean( data2, axis=1)
+                print ('data ', data)
+
+                # update status
+                self.textbox.setText('Redrawing figure')
+
+                self.axes.grid(self.grid_cb.isChecked())
+                self.axes.set_title('Frame ' + str( self.nframes ) );
+
+                #self.axes.plot(data)
+
+                if self.img:
+                    self.img.set_data( data )
+                else:
+                    self.axes.clear()        
+                    self.img = self.axes.imshow( data, interpolation='none' )
+
+                self.canvas.draw()
+                print ('done drawing')
+                self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
+
         else:
             self.textbox.setText('No data available, frames processed: ' + str( self.nframes ))
     
@@ -142,9 +198,14 @@ class EpixEsaForm(QMainWindow):
         # 5x4 inches, 100 dots-per-inch
         #
         self.dpi = 100
-        self.fig = plt.Figure((5.0, 4.0), dpi=self.dpi)
+        self.fig = plt.Figure((10.0, 8.0), dpi=self.dpi)
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setParent(self.main_frame)
+
+        if(self.pyplot_ext):
+            self.fig_ext = plt.figure(1, (5.0, 4.0),dpi = self.dpi)
+            print('creating fog_ext', self.fig_ext)
+            self.axes_ext = self.fig_ext.add_subplot(111);
         
         # add a plot
         self.axes = self.fig.add_subplot(111)
@@ -159,6 +220,12 @@ class EpixEsaForm(QMainWindow):
         self.textbox = QLineEdit()
         self.textbox.setMinimumWidth(200)
         self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
+
+        textbox_integration_label = QLabel('Integrate frames (#):')
+        self.textbox_integration = QLineEdit()
+        self.textbox_integration.setText('1')
+        self.textbox_integration.setMaximumWidth(20)
+        self.connect(self.textbox_integration, SIGNAL('editingFinished ()'), self.on_integration)
         
         self.acq_button = QPushButton("&Acquire Start/Stop")
         self.connect(self.acq_button, SIGNAL('clicked()'), self.on_acq)
@@ -167,26 +234,17 @@ class EpixEsaForm(QMainWindow):
         self.grid_cb.setChecked(False)
         self.connect(self.grid_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
-        slider_label = QLabel('Bar width (%):')
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setRange(1, 100)
-        self.slider.setValue(20)
-        self.slider.setTracking(True)
-        self.slider.setTickPosition(QSlider.TicksBothSides)
-        self.connect(self.slider, SIGNAL('valueChanged(int)'), self.on_draw)
-        
-        
         # Layout with box sizers         
         hbox = QHBoxLayout()
         
-        for w in [  self.textbox, self.acq_button, self.grid_cb,
-                    slider_label, self.slider]:
+        for w in [  textbox_integration_label, self.textbox_integration, self.acq_button, self.grid_cb ]:
             hbox.addWidget(w)
             hbox.setAlignment(w, Qt.AlignVCenter)
         
         vbox = QVBoxLayout()
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget( self.textbox )
         vbox.addLayout(hbox)
         
         self.main_frame.setLayout(vbox)
@@ -204,7 +262,7 @@ class EpixEsaForm(QMainWindow):
             self.statusBar().showMessage('Saved to %s' % path, 2000)
     
     def create_status_bar(self):
-        self.status_text = QLabel("This is a status text")
+        self.status_text = QLabel('Run status: ' + self.run_state)
         self.statusBar().addWidget(self.status_text, 1)
 
 

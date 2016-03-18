@@ -30,6 +30,8 @@ def main():
     epixReader = None
     if args.light:
         epixReader = EpixFileReader(args.light)
+        # set the simulated trigger rate
+        epixReader.set_frame_period(0.1)
     else:        
         raise NotImplementedError
 
@@ -38,18 +40,26 @@ def main():
         epixReader.add_dark_file( args.dark, 10 )
         #epixReader.do_dark_frame_subtraction = True
 
+    
 
     # Connect data to the GUI
     form.connect(epixReader,SIGNAL('newDataFrame'),form.newDataFrame)
+    form.connect(epixReader,SIGNAL('newState'),form.newState)
 
     # Connect acq control to the reader
     form.connect(form, SIGNAL('acqState'),epixReader.change_state)
+    form.connect(form, SIGNAL('integrationCount'),epixReader.set_integration)
+
+    # initialize the state (need to set the GUI status...)
+    print(' what')
+    epixReader.set_state('Stopped')
+    print(' what2')
 
     # show the form
     form.show()
 
     # start the acquizition of frame (should go into GUI button I guess)
-    epixReader.state = 'Running'
+    epixReader.set_state('Running')
 
     # run the app
     sys.exit( app.exec_() )
