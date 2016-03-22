@@ -26,7 +26,7 @@ class EpixFrame(object):
 
     def __init__(self,data):
         # save the data in raw format
-        self.raw_data = data
+        self.raw_data = None #data
 
         # store the data in super rows
         self.super_rows =  None
@@ -35,7 +35,12 @@ class EpixFrame(object):
         #self.__set_raw_super_rows()        
 
         # setup data in unscrambled order
-        self.__set_super_rows()        
+        self.__set_super_rows(data)        
+    
+
+    def add(self,other):
+        """Add another frames data to the current one"""
+        self.super_rows += other.super_rows
     
 
     def __get_asic_indexes(self, asic_nr):
@@ -68,10 +73,10 @@ class EpixFrame(object):
             i = EpixFrame.ny/2 + ( k + r)
         return i
         
-    def __set_super_rows(self):
+    def __set_super_rows(self,data):
         """ Organize into a pixel image """
         #print('set super rows')
-        self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.uint16)
+        self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.int16)
 
         # read data super row by super row
         #print('SR -> R') 
@@ -89,7 +94,7 @@ class EpixFrame(object):
             # pixel index along x
             ix = 0
             # loop over 32bit words
-            for val in self.raw_data[offset_start:offset_end]:
+            for val in data[offset_start:offset_end]:
                 # bits[31:16]
                 self.super_rows[idx][ix] = ( (val >> 16) & 0xFFFF  )
                 ix += 1
@@ -97,14 +102,14 @@ class EpixFrame(object):
                 self.super_rows[idx][ix] = ( val & 0xFFFF  )
                 ix += 1
     
-    def __set_raw_super_rows(self):
+    def __set_raw_super_rows(self,data):
         """ Organize into raw super rows """
         #print('set super rows')
-        self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.uint16)
+        self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.int16)
         for i in range( EpixFrame.ny ):
-            self.__set_raw_super_row(i)
+            self.__set_raw_super_row(i,data)
 
-    def __set_raw_super_row(self,idx):
+    def __set_raw_super_row(self,idx,data):
         """ Read a super row pf pixel data """
 
         # offset start with header words
@@ -113,10 +118,10 @@ class EpixFrame(object):
         
         #print('offset_start ', offset_start, ' offset_end ', offset_end)
         i = 0
-        a = self.raw_data[offset_start:offset_end]
+        a = data[offset_start:offset_end]
         #print('a ', a, ' len(a) ', len(a))
         #print ('i ', i)
-        for val in self.raw_data[offset_start:offset_end]:            
+        for val in data[offset_start:offset_end]:            
             # bits[31:16]
             self.super_rows[idx][i] = ( (val >> 16) & 0xFFFF  )
             i += 1
@@ -169,7 +174,7 @@ class Frame(Epix100a):
         i = 0
         nframes = 0
         nerrors = 0
-        index=np.zeros((65536)).astype(np.uint64);
+        index=np.zeros((65536)).astype(np.int64);
         r = None
 
         print('Read attempt ' + str(i))
@@ -249,7 +254,7 @@ class Frame(Epix100a):
         i = 0
         nframes = 0
         nerrors = 0
-        index=np.zeros((65536)).astype(np.uint64);
+        index=np.zeros((65536)).astype(np.int64);
         r = None
 
         print('Read attempt ' + str(i))

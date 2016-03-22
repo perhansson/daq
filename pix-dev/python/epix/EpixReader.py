@@ -6,7 +6,8 @@ import matplotlib
 from frame import EpixFrame, EpixIntegratedFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-
+from epix import dropbadframes
+from pix_utils import find_seed_clusters, toint
 
 class EpixReader(QThread):
     """ Base class for reading epix data"""
@@ -15,6 +16,9 @@ class EpixReader(QThread):
         
         # state
         self.state = 'Stopped'
+
+        # type of data to send
+        self.send_seed_frames  = False
 
         # mean of dark frames
         self.dark_frame_mean = None
@@ -62,17 +66,42 @@ class EpixReader(QThread):
     def send_data(self, data):
         """Send data to other objects using emit """
 
-        print('Build the EpixFrame')
+        t0=time.clock();
+
+        t1=time.clock();
         frame = EpixIntegratedFrame( data )
+        print('Built EpixFrame in ', str( time.clock() - t1) + ' s')
+
+        
+        # add a dimension to fit the existing function
+        t1=time.clock();
+        tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
+        tmp[0] = frame.super_rows
+        tmp, dropped = dropbadframes(tmp)
+        if tmp.size == 0:
+            print 'dropped frame'
+            return
+        else:
+            print 'not a bad frame'
+
+        print('Drop time total is ', str( time.clock() - t1) + ' s')
 
         if self.do_dark_subtraction:
             print('subtract dark frame')
+            print('1,727 raw ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
             if self.dark_frame_mean == None:
                 print('print no dark frame was available!')
                 sys.exit(1)
             # subtract pixel by pixel
-            frame.super_rows -= self.dark_frame_mean
+            frame.super_rows -= toint( self.dark_frame_mean )
             print('subtraction done')
+            print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+
+        #find seed clusters
+        if self.send_seed_frames:
+            frame.super_rows, n_clusters = find_seed_clusters(frame.super_rows, 20, 3, 3, 1)
+            print('seed_frame 1,727 final ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+        
 
         # it's the first frame
         if self.frame == None:
@@ -85,12 +114,13 @@ class EpixReader(QThread):
         #check if we are ready to send data
         if self.frame.n >= self.integrate:
             print('sending frame after ', self.frame.n, ' integrations')
+            print('data ', self.frame.super_rows)
             self.emit(SIGNAL("newDataFrame"),self.frame)
             # reset frames
             self.frame = None
             #self.frame.n = 0
     
-        
+        print('send_data total is ', str( time.clock() - t0) + ' s')
     
 
     def add_dark_file(self, filename, maxFrames=-1):
@@ -126,6 +156,15 @@ class EpixReader(QThread):
                             frame = EpixFrame(ret)
 
                             print (n, ' created EpixFrame')
+
+                            tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
+                            tmp[0] = frame.super_rows
+                            tmp, dropped = dropbadframes(tmp)
+                            if tmp.size == 0:
+                                print 'dropped frame'
+                                continue
+                            else:
+                                print 'not a bad frame'
 
                             # create the dark sum frame
                             if dark_frame_sum == None:

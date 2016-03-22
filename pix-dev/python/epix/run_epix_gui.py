@@ -13,6 +13,7 @@ def get_args():
     parser = argparse.ArgumentParser('ePix online monitoring.')
     parser.add_argument('--light','-l', help='Data file with exposure.')
     parser.add_argument('--dark','-d', help='Data file with no signal (dark file).')
+    parser.add_argument('--go','-g',action='store_true',help='start acquisition')
     args = parser.parse_args()
     print( args )
     return args
@@ -50,15 +51,15 @@ def main():
     form.connect(form, SIGNAL('integrationCount'),epixReader.set_integration)
 
     # initialize the state (need to set the GUI status...)
-    print(' what')
     epixReader.set_state('Stopped')
-    print(' what2')
 
     # show the form
     form.show()
 
     # start the acquizition of frame (should go into GUI button I guess)
-    #epixReader.set_state('Running')
+
+    if args.go:
+        epixReader.set_state('Running')
 
     # run the app
     sys.exit( app.exec_() )

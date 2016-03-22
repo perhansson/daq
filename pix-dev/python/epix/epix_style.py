@@ -9,7 +9,7 @@ from matplotlib.colors import ListedColormap
 def setup_color_map(plt):
     viridis = get_color_map()
     plt.register_cmap(name='viridis', cmap=viridis)
-    plt.set_cmap(viridis)
+    #plt.set_cmap(viridis)
 
     
 
