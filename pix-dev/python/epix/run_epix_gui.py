@@ -49,6 +49,7 @@ def main():
     # Connect acq control to the reader
     form.connect(form, SIGNAL('acqState'),epixReader.change_state)
     form.connect(form, SIGNAL('integrationCount'),epixReader.set_integration)
+    form.connect(form, SIGNAL('selectASIC'),epixReader.select_asic)
 
     # initialize the state (need to set the GUI status...)
     epixReader.set_state('Stopped')
