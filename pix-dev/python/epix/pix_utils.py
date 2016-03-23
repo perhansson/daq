@@ -11,28 +11,107 @@ import os.path
 import time
 
 
-class FrameAnalysisType(object):
-    """Frame analysis"""
-    def __init__(self, i, name):
-        self.i = i
+
+class FrameAnalysis(object):
+    """Analysis to run on a frame."""
+    def __init__(self, name=''):
         self.name = name
+    def process(self, frame):
+        """Subclasses should override this method.
+        
+        Should return a tuple with the new frame and number of clusters/photons fiund. 
+        This implementation simply passes the frame through.
+        """
+        return frame, -1
+
+
+
+class CheapPhotonAnalysis(FrameAnalysis):
+    """Cheap photon analysis."""
+    def __init__(self):
+        FrameAnalysis.__init__(self, 'cheap_photons')
+    
+    def process(self,frame):
+        """ Do the actual analysis on the frame."""
+        raise NotImplementedError
+
+
+
+class SimpleSeedAnalysis(FrameAnalysis):
+    """Find pixels with large signals, really stupidly complicated."""
+    def __init__(self):
+        FrameAnalysis.__init__(self, 'simple_seed')
+        # noise level in ADC counts
+        self.noise_level = 20
+        # seed size in nr of  pixels (not really used at the moment...)
+        self.seed_size = 3
+        # required threshold in number of noise levels units
+        self.n_sigma = 1
+        # how many pixels that need to be above the threshold
+        self.n_pixels = 1
+    
+    @staticmethod
+    def find_seed_clusters(a0, noise_level, n_sigma, seed_size, n_pixels, max_signal=9999999):
+        t0 = time.clock()
+        sf = np.zeros(a0.shape)
+
+        # select seeds based on this threshold
+        ncrit = n_sigma*noise_level
+
+        # select the seeds
+        sf_seeds = (a0 > ncrit).astype(np.int16)
+
+        print(sf_seeds)
+
+        # number of pixels
+        mx = a0.shape[1]
+        my = a0.shape[0]
+
+        # loop across the whole frame and find the seeds
+        n_clusters = 0
+        iy = 1
+        for iy in range(1,354):
+            for ix in range(384,mx):
+                #print('test pixel at [', iy, ',', ix, '] with ', a0[iy,ix], ' signal')
+                if sf_seeds[iy,ix]:
+                    #print('found seed at [', iy, ',', ix, '] with ', a0[iy,ix], ' signal')
+                    if a0[iy,ix] < max_signal:
+                        # this is a seed,
+                        # calculate how many adjacent pixels in a 3x3 window that are above the seed threshold
+                        n = np.sum(sf_seeds[iy-1:iy+1,ix-1:ix+1])
+                        if n > (n_pixels-1):
+                            #print(' seed accepted')
+                            cluster_signal = np.sum(a0[iy-1:iy+1,ix-1:ix+1])
+                            if cluster_signal < max_signal:
+                                print('accepted seed cluster at [', ix, ',', iy, '] with ', a0[iy,ix], ' signal, cluster_count ', n, ' cluster_signal ', cluster_signal)
+                                sf[iy,ix] = a0[iy,ix]
+                                n_clusters += 1
+                                # no overlaps, this is getting ugly
+                                #ix += seed_size
+                                #iy += seed_size
+                                #continue
+        print( 'Found ', n_clusters, ' seed clusters in '+str(time.clock()-t0)+' s')
+        return sf, n_clusters
+
+    def process(self,frame):
+        """ Do the actual analysis on the frame."""
+        return SimpleSeedAnalysis.find_seed_clusters(frame,  self.noise_level, self.seed_size, self.n_sigma, self.n_pixels)
+
+
+
 
 class FrameAnalysisTypes(object):
     """Frame analyses"""
-    types = [ FrameAnalysisType(0,'none') , \
-              FrameAnalysisType(1,'simple_seed') ]
+    types = [ FrameAnalysis('none'), \
+              SimpleSeedAnalysis() , \
+              CheapPhotonAnalysis()]
     @staticmethod
-    def get(i):
-        for t in FrameAnalysisTypes.types:
-            if t.i == i:
-                return t
-        raise NotImplementedError
-    @staticmethod
-    def get_from_name(s):
+    def get(s):
         for t in FrameAnalysisTypes.types:
             if t.name == s:
                 return t
         raise NotImplementedError
+
 
 
 
@@ -67,47 +146,6 @@ def dropbadframes(a):
 
 
 
-def find_seed_clusters(a0, noise_level, n_sigma, seed_size, n_pixels, max_signal=9999999):
-    t0 = time.clock()
-    sf = np.zeros(a0.shape)
-
-    # select seeds based on this threshold
-    ncrit = n_sigma*noise_level
-
-    # select the seeds
-    sf_seeds = (a0 > ncrit).astype(np.int16)
-
-    print(sf_seeds)
-
-    # number of pixels
-    mx = a0.shape[1]
-    my = a0.shape[0]
-
-    # loop across the whole frame and find the seeds
-    n_clusters = 0
-    iy = 1
-    for iy in range(1,354):
-        for ix in range(384,mx):
-            #print('test pixel at [', iy, ',', ix, '] with ', a0[iy,ix], ' signal')
-            if sf_seeds[iy,ix]:
-                #print('found seed at [', iy, ',', ix, '] with ', a0[iy,ix], ' signal')
-                if a0[iy,ix] < max_signal:
-                    # this is a seed,
-                    # calculate how many adjacent pixels in a 3x3 window that are above the seed threshold
-                    n = np.sum(sf_seeds[iy-1:iy+1,ix-1:ix+1])
-                    if n > (n_pixels-1):
-                        #print(' seed accepted')
-                        cluster_signal = np.sum(a0[iy-1:iy+1,ix-1:ix+1])
-                        if cluster_signal < max_signal:
-                            print('accepted seed cluster at [', ix, ',', iy, '] with ', a0[iy,ix], ' signal, cluster_count ', n, ' cluster_signal ', cluster_signal)
-                            sf[iy,ix] = a0[iy,ix]
-                            n_clusters += 1
-                            # no overlaps, this is getting ugly
-                            #ix += seed_size
-                            #iy += seed_size
-                            #continue
-    print( 'Found ', n_clusters, ' seed clusters in '+str(time.clock()-t0)+' s')
-    return sf, n_clusters
 
 def cmnoise(a):
     noise=12; #12 ADUs

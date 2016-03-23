@@ -6,7 +6,7 @@ import matplotlib
 from frame import EpixFrame, EpixIntegratedFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from pix_utils import find_seed_clusters, toint, dropbadframes, FrameAnalysisType, FrameAnalysisTypes
+from pix_utils import toint, dropbadframes, FrameAnalysisTypes
 
 class EpixReader(QThread):
     """ Base class for reading epix data"""
@@ -18,7 +18,7 @@ class EpixReader(QThread):
         self.state = 'Stopped'
 
         # type of analysis
-        self.selected_analysis = FrameAnalysisTypes.get_from_name('none')
+        self.frame_analysis = FrameAnalysisTypes.get('none')
 
         # mean of dark frames
         self.dark_frame_mean = None
@@ -48,7 +48,7 @@ class EpixReader(QThread):
     def select_analysis(self,a):
         """ Set analysis to be applied to frames."""
         if EpixReader.debug: print('set frame analysis to ', count, ' frames')
-        self.selected_analysis = a
+        self.frame_analysis = a
 
     def set_integration(self,count):
         """ Set number of frames to integrate."""
@@ -117,10 +117,11 @@ class EpixReader(QThread):
             if EpixReader.debug: print('subtraction done')
                 #print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
 
-        # do analysis if selected
-        if self.selected_analysis.name == 'simple_seed':
-            frame.super_rows, n_clusters = find_seed_clusters(frame.super_rows, 20, 3, 3, 1)
-            if EpixReader.debug: print('seed_frame 1,727 final ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+        # do analysis
+        frame.super_rows, n_clusters = self.frame_analysis.process(frame.super_rows)
+        #if self.frame_analysis.name == 'simple_seed':
+        #    frame.super_rows, n_clusters = find_seed_clusters(frame.super_rows, 20, 3, 3, 1)
+        #    if EpixReader.debug: print('seed_frame 1,727 final ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
 
         # it's the first frame
         if self.frame == None:

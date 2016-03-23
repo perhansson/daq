@@ -147,7 +147,7 @@ class EpixEsaForm(QMainWindow):
         if self.debug: print('on select analysis')
         try:
             s = str(self.combo_select_analysis.currentText())
-            a = FrameAnalysisTypes.get_from_name( s )
+            a = FrameAnalysisTypes.get( s )
             self.emit(SIGNAL("selectAnalysis"), a)
         except ValueError:
             print('\n\n========= WARNING, bad analysis selection input \"' + str(self.combo_select_analysis.currentText()) + '\"')
