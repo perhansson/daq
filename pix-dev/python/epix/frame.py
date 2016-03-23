@@ -34,10 +34,10 @@ class EpixFrame(object):
         #self.__set_raw_super_rows()        
 
         # setup data in unscrambled order
-        t0 = time.clock()
+        #t0 = time.clock()
         #self.__set_super_rows(data)        
         self.__set_data(data,asic)        
-        print('__set_super_rows in ', str( time.clock() - t0) + ' s')
+        #print('__set_super_rows in ', str( time.clock() - t0) + ' s')
 
 
     def add(self,other):
@@ -173,7 +173,7 @@ class EpixFrame(object):
             
             #print('set super row ', i ,' in ', str( time.clock() - t0) + ' s')
             t0_sum +=  (time.clock() - t0)
-        print('set super rows with average time ', str( t0_sum/EpixFrame.ny), ' s')
+        #print('set super rows with average time ', str( t0_sum/EpixFrame.ny), ' s')
     
     
     def __set_raw_super_rows(self,data):

@@ -38,25 +38,6 @@ def fmap(data,iframes):
         idx=data.f1map+data.index[iframes];
     return idx;
 
-def dropbadframes(a):
-    maxdif=5;
-    t0=time.clock();
-    nframes,my,mx=a.shape;
-    idx=np.arange(nframes);
-    bm=np.median(a,axis=0);
-    btrace=np.zeros(nframes);
-    ndropped=0;
-    idrop=np.zeros(nframes)
-    for iframe in range(nframes):
-        btrace[iframe]=np.median(np.maximum(maxdif,np.abs(bm-a[iframe])));
-        if (btrace[iframe]>2*maxdif):
-            idrop[ndropped]=iframe;
-            ndropped+=1;
-    if ndropped>0:
-        a=np.delete(a,idrop[0:ndropped],0);
-        idx=np.delete(idx,idrop[0:ndropped]);
-    print ('Dropped '+str(ndropped)+' bad frames in '+str(time.clock()-t0)+' s')
-    return a,idx;
     
 class Epix100a(object):
     def __init__(self,fname):

@@ -6,8 +6,7 @@ import matplotlib
 from frame import EpixFrame, EpixIntegratedFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from epix import dropbadframes
-from pix_utils import find_seed_clusters, toint
+from pix_utils import find_seed_clusters, toint, dropbadframes, FrameAnalysisType, FrameAnalysisTypes
 
 class EpixReader(QThread):
     """ Base class for reading epix data"""
@@ -18,8 +17,8 @@ class EpixReader(QThread):
         # state
         self.state = 'Stopped'
 
-        # type of data to send
-        self.send_seed_frames  = False
+        # type of analysis
+        self.selected_analysis = FrameAnalysisTypes.get_from_name('none')
 
         # mean of dark frames
         self.dark_frame_mean = None
@@ -39,18 +38,30 @@ class EpixReader(QThread):
         # asic to read ( -1 to read all)
         self.selected_asic = -1
 
+        # number of frames sent
+        self.n_sent = 0
+
+        # time to build and send frame
+        self.__t0_sum_send_data = 0.
+    
+
+    def select_analysis(self,a):
+        """ Set analysis to be applied to frames."""
+        if EpixReader.debug: print('set frame analysis to ', count, ' frames')
+        self.selected_analysis = a
+
     def set_integration(self,count):
         """ Set number of frames to integrate."""
-        print('set integration to ', count, ' frames')
+        if EpixReader.debug: print('set integration to ', count, ' frames')
         self.integrate = count
 
     def select_asic(self, asic):
         """Select which asic to read data from."""
-        print('EpixReader : select asic ', asic)
+        if EpixReader.debug: print('EpixReader : select asic ', asic)
         self.selected_asic = asic
 
     def set_state(self, state):
-        print('set state \"', state,'\" from \"', self.state,'\"')
+        if EpixReader.debug: print('set state \"', state,'\" from \"', self.state,'\"')
         if state != 'Running' and state != 'Stopped':
             print('\n\nERROR: Invalid state change to ', state)
         else:
@@ -61,7 +72,7 @@ class EpixReader(QThread):
     def change_state(self):
         """ Change state of the GUI acquizition"""
         
-        print('changing state from ', self.state)
+        if EpixReader.debug: print('changing state from ', self.state)
         if self.state == 'Stopped':
             self.set_state('Running')
         elif self.state == 'Running':
@@ -78,7 +89,8 @@ class EpixReader(QThread):
 
         t1=time.clock();
         frame = EpixIntegratedFrame( data, self.selected_asic )
-        print('Built EpixFrame in ', str( time.clock() - t1) + ' s')
+
+        if EpixReader.debug: print('Built EpixFrame in ' +  str( time.clock() - t1) + ' s')
 
         
         # add a dimension to fit the existing function
@@ -87,29 +99,28 @@ class EpixReader(QThread):
         tmp[0] = frame.super_rows
         tmp, dropped = dropbadframes(tmp)
         if tmp.size == 0:
-            print 'dropped frame'
+            print '[ EpixReader ] : WARNING dropped frame'
             return
         else:
-            print 'not a bad frame'
-
-        print('Drop time total is ', str( time.clock() - t1) + ' s')
+            if EpixReader.debug: print ('not a bad frame')
+        
+        if EpixReader.debug: print('Drop time total is ' + str( time.clock() - t1) + ' s')
 
         if self.do_dark_subtraction:
-            print('subtract dark frame')
-            if EpixReader.debug: print('1,727 raw ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+            if EpixReader.debug: print('subtract dark frame')
+            #print('1,727 raw ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
             if self.dark_frame_mean == None:
                 print('print no dark frame was available!')
                 sys.exit(1)
             # subtract pixel by pixel
             frame.super_rows -= toint( self.dark_frame_mean )
-            print('subtraction done')
-            if EpixReader.debug: print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+            if EpixReader.debug: print('subtraction done')
+                #print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
 
-        #find seed clusters
-        if self.send_seed_frames:
+        # do analysis if selected
+        if self.selected_analysis.name == 'simple_seed':
             frame.super_rows, n_clusters = find_seed_clusters(frame.super_rows, 20, 3, 3, 1)
             if EpixReader.debug: print('seed_frame 1,727 final ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
-        
 
         # it's the first frame
         if self.frame == None:
@@ -121,14 +132,19 @@ class EpixReader(QThread):
 
         #check if we are ready to send data
         if self.frame.n >= self.integrate:
-            if EpixReader.debug: print('sending frame after ', self.frame.n, ' integrations')
-            if EpixReader.debug: print('data ', self.frame.super_rows)
+            if EpixReader.debug: 
+                print('sending frame after ', self.frame.n, ' integrations')
+                print('data ', self.frame.super_rows)
             self.emit(SIGNAL("newDataFrame"),self.frame)
             # reset frames
             self.frame = None
             #self.frame.n = 0
-    
-        print('send_data total is ', str( time.clock() - t0) + ' s')
+            # timers
+            self.n_sent += 1
+            self.__t0_sum_send_data += time.clock() - t0
+            if self.n_sent % 10 == 0:
+                print('sent {0} frames with {1} sec/frame'.format( self.n_sent, self.__t0_sum_send_data/10.))
+                self.__t0_sum_send_data = 0.
     
 
     def add_dark_file(self, filename, maxFrames=-1):
@@ -225,66 +241,7 @@ class EpixReader(QThread):
     def set_frame_period(self, val_sec):
         self.frame_sleep= val_sec
 
-class EpixFileReader(EpixReader):
-    """ Read epix data from a file"""
-    def __init__(self,filename, parent=None):
-        EpixReader.__init__(self, parent)
-        self.filename = filename
-        # start the thread
-        self.start()
 
 
-
-    def run(self):
-
-        print('Read frames from ', self.filename)
-
-        # number of reads from the file
-        n = 0
-        #number of frames read
-        n_frames = 0
-        
-        with open(self.filename,'rb') as f:
-            # read until the read function throws an exception
-            try:
-
-                    
-                while True:
-
-                    # wait until state is correct
-                    if self.state != 'Running':
-                        if EpixReader.debug: print('EpixFileReader thread sleeping')
-                        time.sleep(1.0)
-                        continue
-                                
-                    t0 = time.clock()
-
-                    # read one word from file
-                    fs = np.fromfile(f, dtype=np.uint32, count=4)[0]
-
-                    # read the data
-                    # read the whole frame, it's really fast
-                    ret = np.fromfile(f, dtype=np.uint32, count=(4*fs) )
-
-                    print('read data in ', str( time.clock() - t0) + ' s')
-                    
-
-                    #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
-                    if fs == EpixFrame.framesize:
-                        print (n, ' got frame with ', fs, ' words')
-                        n_frames += 1
-
-                        # send the data
-                        self.send_data( ret )
-                        
-                    else:
-                        print(n, ' got weird size from file fs ', fs , ' ret ', ret)
-                    
-                    #ans = raw_input('next frame?')
-                    time.sleep(self.frame_sleep)
-                    n += 1
-            except IndexError:
-                print(' - read ', n, ' times and got ', n_frames,' frames from file')
-    
         
         

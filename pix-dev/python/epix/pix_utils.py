@@ -10,12 +10,61 @@ import numpy as np
 import os.path
 import time
 
+
+class FrameAnalysisType(object):
+    """Frame analysis"""
+    def __init__(self, i, name):
+        self.i = i
+        self.name = name
+
+class FrameAnalysisTypes(object):
+    """Frame analyses"""
+    types = [ FrameAnalysisType(0,'none') , \
+              FrameAnalysisType(1,'simple_seed') ]
+    @staticmethod
+    def get(i):
+        for t in FrameAnalysisTypes.types:
+            if t.i == i:
+                return t
+        raise NotImplementedError
+    @staticmethod
+    def get_from_name(s):
+        for t in FrameAnalysisTypes.types:
+            if t.name == s:
+                return t
+        raise NotImplementedError
+
+
+
+
 def get_flat_filename(name,tag):
     return  os.path.join( os.path.split( name )[0],  os.path.splitext(  os.path.basename( name ) )[0] + '_' + tag +  os.path.splitext(  os.path.basename( name ) )[1] )
 
 
 def toint(a):
     return np.rint(a).astype(np.int16);
+
+
+def dropbadframes(a):
+    maxdif=5;
+    t0=time.clock();
+    nframes,my,mx=a.shape;
+    idx=np.arange(nframes);
+    bm=np.median(a,axis=0);
+    btrace=np.zeros(nframes);
+    ndropped=0;
+    idrop=np.zeros(nframes)
+    for iframe in range(nframes):
+        btrace[iframe]=np.median(np.maximum(maxdif,np.abs(bm-a[iframe])));
+        if (btrace[iframe]>2*maxdif):
+            idrop[ndropped]=iframe;
+            ndropped+=1;
+    if ndropped>0:
+        a=np.delete(a,idrop[0:ndropped],0);
+        idx=np.delete(idx,idrop[0:ndropped]);
+    #print ('Dropped '+str(ndropped)+' bad frames in '+str(time.clock()-t0)+' s')
+    return a,idx;
+
 
 
 def find_seed_clusters(a0, noise_level, n_sigma, seed_size, n_pixels, max_signal=9999999):

@@ -2,21 +2,23 @@ import sys, os
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+import time
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
-import numpy as np
 from frame import EpixFrame
 from plots import EpixPlots, EpixPlot
 import epix_style
-
+from pix_utils import FrameAnalysisTypes
 
 class EpixEsaForm(QMainWindow):
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, debug=False):
         QMainWindow.__init__(self, parent)
         self.setWindowTitle('ePix ESA Live Display')
 
+        self.debug = debug
         #plt.ion()
 
         # run state
@@ -30,6 +32,8 @@ class EpixEsaForm(QMainWindow):
         # work around if we need to know when updating stuff
         self.__asic_plotted = -1
 
+        # timer
+        self.__t0_sum = 0.
 
         self.integration_count = 1
         
@@ -62,7 +66,7 @@ class EpixEsaForm(QMainWindow):
     def newDataFrame(self,data_frame):
         """ Receives new data and creates a new frame"""
 
-        #print('newDataFrame')
+        #if self.debug: print('newDataFrame')
 
         self.last_frame = data_frame
         if self.acc_frame:
@@ -81,7 +85,7 @@ class EpixEsaForm(QMainWindow):
                 self.on_draw()
         # otherwise try to update plots whenever there is new data
         else:
-            #print('draw it')
+            #if self.debug: print('draw it')
             self.on_draw()
 
     def newState(self,state_str):
@@ -102,30 +106,30 @@ class EpixEsaForm(QMainWindow):
 
     def on_acq(self):
         """ Start or stop the acquisition of data"""
-        print('on acq')
+        if self.debug: print('on acq')
         self.emit(SIGNAL("acqState"),1)
 
     def on_reset_integration(self):
         """ Reset the integration frame"""
-        print('on reset integration')
+        if self.debug: print('on reset integration')
         self.acc_frame = None
         self.nframes_acc = 0
 
     def on_integration(self):
         """ update the integration"""
-        print('on integration')
+        if self.debug: print('on integration')
         try:
             str = unicode(self.textbox_integration.text())
             c = int(str)
             self.integration_count = c            
             self.emit(SIGNAL("integrationCount"), self.integration_count)
         except ValueError:
-            print('\n\n========= WARNING, bad integration input \"', self.textbox_integration.text(), '\"\n Need to be an integer only')
+            print('\n\n========= WARNING, bad integration input \"' + self.textbox_integration.text() + '\"\n Need to be an integer only')
 
 
     def on_select_asic(self):
         """ update the selected asic"""
-        print('on select asic')
+        if self.debug: print('on select asic')
         try:
             s = str(self.combo_select_asic.currentText())
             if s == 'ALL':
@@ -136,15 +140,27 @@ class EpixEsaForm(QMainWindow):
             # should send this to the reader to avoid reading all of the data
             self.emit(SIGNAL("selectASIC"), self.select_asic)
         except ValueError:
-            print('\n\n========= WARNING, bad ASIC selection input \"', str(self.combo_select_asic.currentText()), '\"\n Need to be an integer only')
+            print('\n\n========= WARNING, bad ASIC selection input \"' + str(self.combo_select_asic.currentText()) + '\"\n Need to be an integer only')
+
+    def on_select_analysis(self):
+        """ update the selected analysis"""
+        if self.debug: print('on select analysis')
+        try:
+            s = str(self.combo_select_analysis.currentText())
+            a = FrameAnalysisTypes.get_from_name( s )
+            self.emit(SIGNAL("selectAnalysis"), a)
+        except ValueError:
+            print('\n\n========= WARNING, bad analysis selection input \"' + str(self.combo_select_analysis.currentText()) + '\"')
     
     
     def on_draw(self):
         """ Redraws the figure
         """
 
-        print ('on_draw ')
+        if self.debug: print ('on_draw ')
         
+        t0 = time.clock()
+
 
         # check that there is a data to be drawn
         if self.last_frame != None:
@@ -158,10 +174,10 @@ class EpixEsaForm(QMainWindow):
                 ep.axes.grid(self.grid_cb.isChecked())
 
             # update the current frame plot
-            print('draw current frame')
+            if self.debug: print('draw current frame')
             data = self.last_frame.get_data(self.select_asic)
 
-            print ('data ', data)
+            if self.debug: print ('data ', data)
 
             #np.savez('data_asic' + str(self.select_asic) + '_' + str( self.nframes), data )
 
@@ -204,9 +220,9 @@ class EpixEsaForm(QMainWindow):
 
 
             # update the accumulated frame
-            print('draw accumulated frame')
+            if self.debug: print('draw accumulated frame')
             data = self.acc_frame.get_data(self.select_asic)
-            print ('data ', data)
+            if self.debug: print ('data ', data)
             self.epix_plots.get_plot('integrated').axes.set_title(str( self.nframes_acc) + ' integrated frames ');
             if self.epix_plots.get_plot('integrated').img and self.__asic_plotted == self.select_asic:
                 self.epix_plots.get_plot('integrated').img.set_data( data )
@@ -232,11 +248,19 @@ class EpixEsaForm(QMainWindow):
             self.__asic_plotted = self.select_asic
 
             self.canvas.draw()
-            print ('done drawing')
+            if self.debug: print ('done drawing')
             self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
+
+            # timer info
+            self.__t0_sum += time.clock() - t0
+            if self.nframes % 10 == 0:
+                print('Draw  {0} frames with {1} sec/frame'.format(self.nframes, self.__t0_sum/10.))
+                self.__t0_sum = 0.
 
         else:
             self.textbox.setText('No data available, frames processed: ' + str( self.nframes ))
+    
+        if self.debug: print('Completed draw in {0} s'.format(time.clock() - t0))
     
 
     def create_menu(self):        
@@ -309,9 +333,16 @@ class EpixEsaForm(QMainWindow):
             if i == -1:                
                 self.combo_select_asic.addItem("ALL")
             else:
-                self.combo_select_asic.addItem(str(i))        
+                self.combo_select_asic.addItem(str(i))
         self.combo_select_asic.setCurrentIndex(0)
         self.combo_select_asic.currentIndexChanged['QString'].connect(self.on_select_asic)
+
+        textbox_select_analysis_label = QLabel('Select frame analysis:')
+        self.combo_select_analysis = QComboBox(self)
+        for a in FrameAnalysisTypes.types:
+            self.combo_select_analysis.addItem( a.name )
+        self.combo_select_analysis.setCurrentIndex(0)
+        self.combo_select_analysis.currentIndexChanged['QString'].connect(self.on_select_analysis)
         
         self.acq_button = QPushButton("&Acquire Start/Stop")
         self.connect(self.acq_button, SIGNAL('clicked()'), self.on_acq)
@@ -329,6 +360,7 @@ class EpixEsaForm(QMainWindow):
         
         for w in [  textbox_integration_label, self.textbox_integration,
                     textbox_select_asic_label, self.combo_select_asic,
+                    textbox_select_analysis_label, self.combo_select_analysis,
                     self.acq_button,
                     self.reset_integration_button]:
             hbox_cntrl.addWidget(w)

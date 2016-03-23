@@ -6,7 +6,9 @@ import sys
 import argparse
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
-from EpixReader import EpixReader, EpixFileReader
+from EpixReader import EpixReader
+from EpixFileReader import EpixFileReader
+from EpixShMemReader import EpixShMemReader
 from online_gui_epix import EpixEsaForm
 
 def get_args():
@@ -25,7 +27,7 @@ def main():
     app = QApplication(sys.argv)
 
     # create the GUI
-    form = EpixEsaForm()
+    form = EpixEsaForm(parent=None, debug=False)
 
     # create the data reader
     epixReader = None
@@ -34,8 +36,8 @@ def main():
         # set the simulated trigger rate
         epixReader.set_frame_period(0.1)
     else:        
-        raise NotImplementedError
-
+        epixReader = EpixShMemReader()
+    
     # add a dark frame if supplied
     if args.dark != None:
         epixReader.add_dark_file( args.dark, 10 )
@@ -50,6 +52,7 @@ def main():
     form.connect(form, SIGNAL('acqState'),epixReader.change_state)
     form.connect(form, SIGNAL('integrationCount'),epixReader.set_integration)
     form.connect(form, SIGNAL('selectASIC'),epixReader.select_asic)
+    form.connect(form, SIGNAL('selectAnalysis'),epixReader.select_analysis)
 
     # initialize the state (need to set the GUI status...)
     epixReader.set_state('Stopped')
