@@ -12,6 +12,8 @@ from plots import EpixPlots, EpixPlot
 import epix_style
 from pix_utils import FrameAnalysisTypes
 
+
+
 class EpixEsaForm(QMainWindow):
 
     def __init__(self, parent=None, debug=False):
@@ -180,10 +182,9 @@ class EpixEsaForm(QMainWindow):
             if self.debug: print('draw current frame')
             data = self.last_frame.get_data(self.select_asic)
 
-            #if self.debug: 
-            print ('data ', data)
+            if self.debug: print ('data ', data)
 
-            np.savez('data_asic' + str(self.select_asic) + '_' + str( self.nframes), data )
+            #np.savez('data_asic' + str(self.select_asic) + '_' + str( self.nframes), data )
 
             frame_plot_title = 'Last frame'
             if self.integration_count > 1:
@@ -337,35 +338,6 @@ class EpixEsaForm(QMainWindow):
         self.add_actions(self.help_menu, (about_action,))
 
 
-    def create_cluster_frame(self):
-        self.cluster_frame = QWidget()
-        self.dpi = 100
-        self.fig_cluster = plt.Figure(figsize=(8, 5), dpi=150)
-        self.canvas_cluster = FigureCanvas(self.fig_cluster)
-        #self.canvas_cluster.setParent(self.main_frame)
-
-        # Create the navigation toolbar, tied to the canvas        
-        self.mpl_toolbar_cluster = NavigationToolbar(self.canvas_cluster, self.cluster_frame)
-
-        textbox_label = QLabel('Test')
-        self.textbox_clusters = QLineEdit()
-        self.textbox_clusters.setText('-')
-        self.textbox_clusters.setMaximumWidth(30)
-        #self.connect(self.textbox_integration, SIGNAL('editingFinished ()'), self.on_integration)
-
-        #hbox_cntrl = QHBoxLayout()
-        
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.canvas_cluster)
-        vbox.addWidget(self.mpl_toolbar)
-        vbox.addWidget( textbox_label )
-        vbox.addWidget( self.textbox_clusters )
-        #vbox.addLayout(hbox_cntrl)
-        #vbox.addLayout(hbox_plotting)
-        
-        self.cluster_frame.setLayout(vbox)
-        #self.setCentralWidget(self.main_frame)
-    
 
     def create_main_frame(self):
         self.main_frame = QWidget()
