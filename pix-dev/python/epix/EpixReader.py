@@ -47,7 +47,7 @@ class EpixReader(QThread):
 
     def select_analysis(self,a):
         """ Set analysis to be applied to frames."""
-        if EpixReader.debug: print('set frame analysis to ', count, ' frames')
+        if EpixReader.debug: print('set frame analysis to ' + a.name )
         self.frame_analysis = a
 
     def set_integration(self,count):
@@ -118,10 +118,7 @@ class EpixReader(QThread):
                 #print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
 
         # do analysis
-        frame.super_rows, n_clusters = self.frame_analysis.process(frame.super_rows)
-        #if self.frame_analysis.name == 'simple_seed':
-        #    frame.super_rows, n_clusters = find_seed_clusters(frame.super_rows, 20, 3, 3, 1)
-        #    if EpixReader.debug: print('seed_frame 1,727 final ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
+        frame.super_rows, frame.clusters = self.frame_analysis.process(frame.super_rows)
 
         # it's the first frame
         if self.frame == None:
@@ -148,7 +145,7 @@ class EpixReader(QThread):
                 self.__t0_sum_send_data = 0.
     
 
-    def add_dark_file(self, filename, maxFrames=-1):
+    def add_dark_file(self, filename, maxFrames=100, alg='median'):
         """ Process dark file """
         print('Adding dark file from', filename)
         dark_frame_sum = None
@@ -163,6 +160,9 @@ class EpixReader(QThread):
             #number of frames read
             n_frames = 0
             
+            # hold all the dark frames in memory ?
+            dark_frames = np.zeros( (maxFrames, EpixFrame.ny, EpixFrame.nx) )
+
             with open(filename,'rb') as f:
                 # read until the read function throws an exception
                 try:
@@ -195,9 +195,12 @@ class EpixReader(QThread):
                             if dark_frame_sum == None:
                                 # use a 64 bit counter - not sure it matters
                                 dark_frame_sum = np.zeros( frame.super_rows.shape, dtype=np.float64 )
-
+                            
                             # add frame to dark frame
                             dark_frame_sum += frame.super_rows
+                            
+                            # save the frame
+                            dark_frames[n_frames] = frame.super_rows
 
                             print (n, ' added to dark frame')
 
@@ -217,15 +220,17 @@ class EpixReader(QThread):
                         n += 1
                 except IndexError:
                     print(' - read ', n, ' times and got ', n_frames,' frames from file')
-
+            
             # calculate mean for each pixel
             self.dark_frame_mean = dark_frame_sum / n_frames
             # enable by default
             self.do_dark_frame_subtraction = True
-
+            
+            # calculate the median
+            self.dark_frame_median = np.median(dark_frames, axis=0)
             # save to file
-            np.savez( dark_filename, dark_frame_mean = self.dark_frame_mean)
-
+            np.savez( dark_filename, dark_frame_mean = self.dark_frame_mean, dark_frame_median = self.dark_frame_median)
+        
 
         else:
             print ('dark file already exists ', dark_filename)
