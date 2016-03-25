@@ -55,6 +55,8 @@ class EpixEsaForm(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
 
+        #self.create_cluster_frame()
+
         self.textbox.setText('Initializing...')
 
         # image to be displayed
@@ -142,6 +144,7 @@ class EpixEsaForm(QMainWindow):
         except ValueError:
             print('\n\n========= WARNING, bad ASIC selection input \"' + str(self.combo_select_asic.currentText()) + '\"\n Need to be an integer only')
 
+    
     def on_select_analysis(self):
         """ update the selected analysis"""
         if self.debug: print('on select analysis')
@@ -177,9 +180,10 @@ class EpixEsaForm(QMainWindow):
             if self.debug: print('draw current frame')
             data = self.last_frame.get_data(self.select_asic)
 
-            if self.debug: print ('data ', data)
+            #if self.debug: 
+            print ('data ', data)
 
-            #np.savez('data_asic' + str(self.select_asic) + '_' + str( self.nframes), data )
+            np.savez('data_asic' + str(self.select_asic) + '_' + str( self.nframes), data )
 
             frame_plot_title = 'Last frame'
             if self.integration_count > 1:
@@ -188,66 +192,111 @@ class EpixEsaForm(QMainWindow):
             #'Last ', self.integration, ' frame ' + str( self.nframes ));
             # may need to redraw when a new asic is selected
             # not needed in v10.1 of numpy/matplotlib combo?
-            if self.epix_plots.get_plot('frame').img and self.__asic_plotted == self.select_asic:
-                self.epix_plots.get_plot('frame').img.set_data( data )
-            else:
-                self.epix_plots.get_plot('frame').axes.clear()
-                self.epix_plots.get_plot('frame').img = self.epix_plots.get_plot('frame').axes.imshow( data, interpolation='nearest', cmap='viridis', vmin=0, vmax=2 )                    
-                self.epix_plots.get_plot('frame').axes.xaxis.set_label( 'Pixel X' )
-                #plt.gcf().axes.xaxis.set_label( 'Pixel X' )
-                #self.epix_plots.get_plot('frame').img.xlabel( 'Pixel X' )
-                #self.epix_plots.get_plot('frame').img.ylabel( 'Pixel Y' )
-                self.fig.colorbar( self.epix_plots.get_plot('frame').img, cax=self.epix_plots.get_plot('frame').axes)
+            #dummy = False
+            #if dummy and self.epix_plots.get_plot('frame').img and self.__asic_plotted == self.select_asic:
+            #    self.epix_plots.get_plot('frame').img.set_data( data )
+            #else:
+            self.epix_plots.get_plot('frame').axes.clear()
+            self.epix_plots.get_plot('frame').axes.imshow( data, interpolation='nearest', cmap='viridis', vmin=-100, vmax=5000 )                    
+            #self.epix_plots.get_plot('frame').axes.xaxis.set_label( 'Pixel X' )
+            #plt.gcf().axes.xaxis.set_label( 'Pixel X' )
+            #self.epix_plots.get_plot('frame').img.xlabel( 'Pixel X' )
+            #self.epix_plots.get_plot('frame').img.ylabel( 'Pixel Y' )
+            #self.fig.colorbar( self.epix_plots.get_plot('frame').img, cax=self.epix_plots.get_plot('frame').axes)
             #if self.epix_plots.get_plot('frame').cbar:
             #    self.epix_plots.get_plot('frame').cbar 
-
-
+            
+            
             # projection
+            x_data = np.sum(data, axis=0)
+            x_min = 0
+            x_max = len(x_data)
+            x_hist = range(x_min,x_max)
+            n_bins_x = len(x_data)/4
+            #x_data = np.sum(data, axis=0)
+            #x_min = 0
+            #x_max = len(x_data)
+            #x_hist = range(x_min,x_max)
+            #n_bins_x = len(x_hist)
+            
             frame_plot_title = 'Last frame prj X'
             if self.integration_count > 1:
                 frame_plot_title = 'Last ' + str(self.integration_count) + ' frames prj X'                    
-            self.epix_plots.get_plot('prj_x').axes.set_title( frame_plot_title )
             self.epix_plots.get_plot('prj_x').axes.clear()
-            self.epix_plots.get_plot('prj_x').img = self.epix_plots.get_plot('prj_x').axes.plot( np.sum(data, axis=0) )
+            self.epix_plots.get_plot('prj_x').axes.set_xlabel( 'X' )
+            self.epix_plots.get_plot('prj_x').axes.hist(x_hist, bins=n_bins_x, weights=x_data, facecolor='green', alpha=0.5) 
 
+            #y_data = np.sum(data, axis=1)[::-1]
+            y_data = np.sum(data, axis=1)
+            y_min = 0
+            y_max = len(y_data)
+            y_hist = range(y_min,y_max)
+            n_bins_y = len(y_data)/4
+
+            
             frame_plot_title = 'Last frame prj Y'
             if self.integration_count > 1:
                 frame_plot_title = 'Last ' + str(self.integration_count) + ' frames prj Y'                    
-            self.epix_plots.get_plot('prj_y').axes.set_title( frame_plot_title )
             self.epix_plots.get_plot('prj_y').axes.clear()
-            self.epix_plots.get_plot('prj_y').img = self.epix_plots.get_plot('prj_y').axes.plot( np.sum(data, axis=1), range(len(np.sum(data, axis=1))) )
-
+            self.epix_plots.get_plot('prj_y').axes.set_xlabel( 'Y' )
+            #self.epix_plots.get_plot('prj_y').axes.hist(y_hist,bins=n_bins_y,weights=y_data, facecolor='red', alpha=0.5, orientation='horizontal') 
+            self.epix_plots.get_plot('prj_y').axes.plot( y_data, range(len(y_data)-1,-1,-1) )
 
 
             # update the accumulated frame
             if self.debug: print('draw accumulated frame')
-            data = self.acc_frame.get_data(self.select_asic)
-            if self.debug: print ('data ', data)
+            data_acc = self.acc_frame.get_data(self.select_asic)
+            if self.debug: print ('data_acc ', data_acc)
+            #if self.epix_plots.get_plot('integrated').img and self.__asic_plotted == self.select_asic:
+            #    self.epix_plots.get_plot('integrated').img.set_data( data )
+            #else:
+            self.epix_plots.get_plot('integrated').axes.clear()
             self.epix_plots.get_plot('integrated').axes.set_title(str( self.nframes_acc) + ' integrated frames ');
-            if self.epix_plots.get_plot('integrated').img and self.__asic_plotted == self.select_asic:
-                self.epix_plots.get_plot('integrated').img.set_data( data )
-            else:
-                self.epix_plots.get_plot('integrated').axes.clear()
-                self.epix_plots.get_plot('integrated').img = self.epix_plots.get_plot('integrated').axes.imshow( data, interpolation='nearest', cmap='viridis', vmin=0, vmax=2 )
-                self.fig.colorbar( self.epix_plots.get_plot('integrated').img, cax=self.epix_plots.get_plot('integrated').axes)
+            self.epix_plots.get_plot('integrated').axes.imshow( data_acc, interpolation='nearest', cmap='viridis', vmin=-100, vmax=5000)
+            #self.fig.colorbar( self.epix_plots.get_plot('integrated').img, cax=self.epix_plots.get_plot('integrated').axes)
 
 
 
             # projection of accumulated frame
-            self.epix_plots.get_plot('integrated_prj_x').axes.set_title(str( self.nframes_acc) + ' integrated frames prj X');
-            self.epix_plots.get_plot('integrated_prj_x').axes.set_title( frame_plot_title )
+            x_data_acc = np.sum(data_acc, axis=0)
+            x_min = 0
+            x_max = len(x_data_acc)
+            x_hist = range(x_min,x_max)
+            n_bins_x = len(x_data_acc)/4
+            
+            frame_plot_title = 'Last frame prj X'
+            if self.integration_count > 1:
+                frame_plot_title = 'Last ' + str(self.integration_count) + ' frames prj X'                    
             self.epix_plots.get_plot('integrated_prj_x').axes.clear()
-            self.epix_plots.get_plot('integrated_prj_x').img = self.epix_plots.get_plot('integrated_prj_x').axes.plot( np.sum(data, axis=0) )
+            self.epix_plots.get_plot('integrated_prj_x').axes.set_xlabel( 'X' )
+            self.epix_plots.get_plot('integrated_prj_x').axes.set_title(str( self.nframes_acc) + ' integrated frames');
+            self.epix_plots.get_plot('integrated_prj_x').axes.hist(x_hist,bins=n_bins_x,weights=x_data_acc, facecolor='green', alpha=0.5) 
 
-            self.epix_plots.get_plot('integrated_prj_y').axes.set_title(str( self.nframes_acc) + ' integrated frames prj Y');
-            self.epix_plots.get_plot('integrated_prj_y').axes.set_title( frame_plot_title )
+            #self.epix_plots.get_plot('integrated_prj_x').axes.clear()
+            #self.epix_plots.get_plot('integrated_prj_x').axes.set_title(str( self.nframes_acc) + ' integrated frames prj X');
+            #self.epix_plots.get_plot('integrated_prj_x').img = self.epix_plots.get_plot('integrated_prj_x').axes.plot( np.sum(data_acc, axis=0) )
+
+            y_data_acc = np.sum(data_acc, axis=1)
+            y_min = 0
+            y_max = len(y_data_acc)
+            y_hist = range(y_min,y_max)
+            n_bins_y = len(y_data_acc)/4
+
+
             self.epix_plots.get_plot('integrated_prj_y').axes.clear()
-            self.epix_plots.get_plot('integrated_prj_y').img = self.epix_plots.get_plot('integrated_prj_y').axes.plot( np.sum(data, axis=1), range(len(np.sum(data, axis=1))) )
+            self.epix_plots.get_plot('integrated_prj_y').axes.set_xlabel( 'Y' )
+            self.epix_plots.get_plot('integrated_prj_y').axes.set_title(str( self.nframes_acc) + ' integrated frames');
+            #self.epix_plots.get_plot('integrated_prj_y').axes.hist(y_hist,bins=n_bins_y,weights=y_data_acc, facecolor='red', alpha=0.5, orientation='horizontal') 
+            self.epix_plots.get_plot('integrated_prj_y').axes.plot( y_data_acc, range(len(y_data_acc)-1,-1,-1) )
+
 
             # update the asic being plotted
             self.__asic_plotted = self.select_asic
 
             self.canvas.draw()
+
+            #plt.subplots_adjust(left=0.1,right=0.95,top=0.95,bottom=0.05)
+            
             if self.debug: print ('done drawing')
             self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
 
@@ -288,6 +337,36 @@ class EpixEsaForm(QMainWindow):
         self.add_actions(self.help_menu, (about_action,))
 
 
+    def create_cluster_frame(self):
+        self.cluster_frame = QWidget()
+        self.dpi = 100
+        self.fig_cluster = plt.Figure(figsize=(8, 5), dpi=150)
+        self.canvas_cluster = FigureCanvas(self.fig_cluster)
+        #self.canvas_cluster.setParent(self.main_frame)
+
+        # Create the navigation toolbar, tied to the canvas        
+        self.mpl_toolbar_cluster = NavigationToolbar(self.canvas_cluster, self.cluster_frame)
+
+        textbox_label = QLabel('Test')
+        self.textbox_clusters = QLineEdit()
+        self.textbox_clusters.setText('-')
+        self.textbox_clusters.setMaximumWidth(30)
+        #self.connect(self.textbox_integration, SIGNAL('editingFinished ()'), self.on_integration)
+
+        #hbox_cntrl = QHBoxLayout()
+        
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.canvas_cluster)
+        vbox.addWidget(self.mpl_toolbar)
+        vbox.addWidget( textbox_label )
+        vbox.addWidget( self.textbox_clusters )
+        #vbox.addLayout(hbox_cntrl)
+        #vbox.addLayout(hbox_plotting)
+        
+        self.cluster_frame.setLayout(vbox)
+        #self.setCentralWidget(self.main_frame)
+    
+
     def create_main_frame(self):
         self.main_frame = QWidget()
         
@@ -295,7 +374,8 @@ class EpixEsaForm(QMainWindow):
         # 5x4 inches, 100 dots-per-inch
         #
         self.dpi = 100
-        self.fig = plt.Figure(figsize=(20, 20), dpi=150)
+        #self.fig = plt.Figure(figsize=(20, 20), dpi=150)
+        self.fig = plt.Figure() #figsize=(10, 5), dpi=150)
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setParent(self.main_frame)
 
@@ -309,6 +389,9 @@ class EpixEsaForm(QMainWindow):
         self.epix_plots.add_plot( EpixPlot('integrated', self.fig.add_subplot(234)) )
         self.epix_plots.add_plot( EpixPlot('integrated_prj_x', self.fig.add_subplot(235)) )
         self.epix_plots.add_plot( EpixPlot('integrated_prj_y', self.fig.add_subplot(236)) )
+        
+        # setup subplots space
+        self.fig.subplots_adjust(hspace=0.3,wspace=0.4,left=0.05,bottom=0.1,right=0.98,top=0.98)
         
         # Bind the 'pick' event for clicking on the plot         
         self.canvas.mpl_connect('pick_event', self.on_pick)
