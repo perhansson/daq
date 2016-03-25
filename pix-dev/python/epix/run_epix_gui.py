@@ -16,6 +16,7 @@ def get_args():
     parser.add_argument('--light','-l', help='Data file with exposure.')
     parser.add_argument('--dark','-d', help='Data file with no signal (dark file).')
     parser.add_argument('--go','-g',action='store_true',help='start acquisition')
+    parser.add_argument('--debug',action='store_true',help='debug toggle')
     args = parser.parse_args()
     print( args )
     return args
@@ -38,9 +39,11 @@ def main():
     else:        
         epixReader = EpixShMemReader()
     
+    EpixReader.debug = args.debug
+    
     # add a dark frame if supplied
     if args.dark != None:
-        epixReader.add_dark_file( args.dark, 10 )
+        epixReader.add_dark_file( args.dark, 10, 'median' )
         #epixReader.do_dark_frame_subtraction = True
 
     
