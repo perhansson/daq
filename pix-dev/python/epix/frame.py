@@ -39,15 +39,14 @@ class EpixFrame(object):
         self.__set_data(data,asic)        
         #print('__set_super_rows in ', str( time.clock() - t0) + ' s')
 
+        # clusters
+        self.clusters = []
+
 
     def add(self,other):
         """Add another frames data to the current one"""
         self.super_rows += other.super_rows
     
-
-    def __get_asic_indexes(self, asic_nr):
-        """ Return a tuple with indices"""
-        return 0
         
     def get_data(self,asic):
         """Return data"""
@@ -215,7 +214,12 @@ class EpixIntegratedFrame(EpixFrame):
         self.n = 1
     
     def add_frame(self, frame):
-        """Add the pixel data"""
+        """
+        Add the pixel data
+
+        Note, do not add clusters.
+        
+        """
         self.super_rows += frame.super_rows
         self.n += 1
 
