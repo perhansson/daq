@@ -46,14 +46,14 @@ class EpixFileReader(EpixReader):
                     # read the whole frame, it's really fast
                     ret = np.fromfile(f, dtype=np.uint32, count=(4*fs) )
 
-                    print('read data in ', str( time.clock() - t0) + ' s')
+                    if EpixReader.debug: print('read data in ', str( time.clock() - t0) + ' s')
                     
 
                     #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
                     if fs == EpixFrame.framesize:
-                        print (n, ' got frame with ', fs, ' words')
+                        if EpixReader.debug: print (n, ' got frame with ', fs, ' words')
                         n_frames += 1
-
+                        
                         # send the data
                         self.send_data( ret )
                         
