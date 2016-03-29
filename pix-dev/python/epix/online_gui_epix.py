@@ -11,6 +11,7 @@ from frame import EpixFrame
 from plots import EpixPlots, EpixPlot
 import epix_style
 from pix_utils import FrameAnalysisTypes
+from daq_worker_gui import *
 
 
 
@@ -53,6 +54,7 @@ class EpixEsaForm(QMainWindow):
         self.period = None
 
         # GUI stuff
+        self.create_daq_worker_gui()
         self.create_menu()
         self.create_main_frame()
         self.create_status_bar()
@@ -65,7 +67,17 @@ class EpixEsaForm(QMainWindow):
         self.img = None
         self.on_draw()
 
-        
+    def create_daq_worker_gui(self, daq_worker=None):                
+        # create the widget
+        self.daq_worker_widget  = DaqWorkerWidget()
+        # add the daq connection
+        if daq_worker != None:
+            self.connect_daq_worker_gui(daq_worker)
+    
+    def connect_daq_worker_gui(self, daq_worker):        
+        self.daq_worker_widget.connect_workers( daq_worker )
+    
+    
 
     def newDataFrame(self,data_frame):
         """ Receives new data and creates a new frame"""
@@ -157,6 +169,13 @@ class EpixEsaForm(QMainWindow):
         except ValueError:
             print('\n\n========= WARNING, bad analysis selection input \"' + str(self.combo_select_analysis.currentText()) + '\"')
     
+
+    def on_dark_file_select(self):
+        #if self.debug: 
+        print(' on_dark_file_select')
+        t = self.textbox_dark_file.text()
+        self.emit(SIGNAL('selectDarkFile'), str(t))
+
     
     def on_draw(self):
         """ Redraws the figure
@@ -173,6 +192,10 @@ class EpixEsaForm(QMainWindow):
 
             # update status
             self.textbox.setText('Redrawing figure')
+
+            # update dark file
+            self.update_dark_file()
+            #self.textbox_dark_file.setText(self.daq_worker_widget.textbox_dark_file.text())
 
             # set plot options
             for ep in self.epix_plots.plots:
@@ -373,8 +396,12 @@ class EpixEsaForm(QMainWindow):
         
         # Other GUI controls
         self.textbox = QLineEdit()
-        self.textbox.setMinimumWidth(200)
+        self.textbox.setMinimumWidth(100)
         self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
+
+        self.textbox_dark_file = QLineEdit()
+        self.textbox_dark_file.setMinimumWidth(200)
+        #self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
 
         textbox_integration_label = QLabel('Integrate frames (#):')
         self.textbox_integration = QLineEdit()
@@ -389,7 +416,7 @@ class EpixEsaForm(QMainWindow):
                 self.combo_select_asic.addItem("ALL")
             else:
                 self.combo_select_asic.addItem(str(i))
-        self.combo_select_asic.setCurrentIndex(0)
+        self.combo_select_asic.setCurrentIndex(self.select_asic + 1)
         self.combo_select_asic.currentIndexChanged['QString'].connect(self.on_select_asic)
 
         textbox_select_analysis_label = QLabel('Select frame analysis:')
@@ -430,12 +457,32 @@ class EpixEsaForm(QMainWindow):
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
         vbox.addWidget( self.textbox )
+        vbox.addWidget( self.textbox_dark_file )
         vbox.addLayout(hbox_cntrl)
         vbox.addLayout(hbox_plotting)
-        
+
+        self.quit_button = QPushButton("&Quit")
+        self.quit_button.clicked.connect(self.on_quit)
+        vbox.addWidget( self.quit_button )
+
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
 
+
+    def on_quit(self):
+        self.daq_worker_widget.close()
+        self.close()
+
+    def update_dark_file(self):
+        t = self.daq_worker_widget.textbox_dark_file.text()
+        if t != self.textbox_dark_file.text():
+            print('update dark file from \"' + str(t) + '\" to \"' + str(self.textbox_dark_file.text()) + '\"')
+            self.textbox_dark_file.setText(t)
+            self.on_dark_file_select()
+        #else:
+        #print('dont update dark file')
+    
+    
 
     def save_plot(self):
         file_choices = "PNG (*.png)|*.png"

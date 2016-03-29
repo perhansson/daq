@@ -81,6 +81,13 @@ class EpixReader(QThread):
             print('Wrong state ', self.state)
             sys.exit(1)
 
+
+    def select_dark_file(self,t):
+        """Select a new dark file."""
+        #if EpixReader.debug: 
+        print('select dark file ' + t)
+        self.add_dark_file(t)
+
     
     def send_data(self, data):
         """Send data to other objects using emit """
@@ -110,13 +117,14 @@ class EpixReader(QThread):
             if EpixReader.debug: print('subtract dark frame')
             #print('1,727 raw ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
             if self.dark_frame_mean == None:
-                print('print no dark frame was available!')
-                sys.exit(1)
-            # subtract pixel by pixel
-            frame.super_rows -= toint( self.dark_frame_mean )
-            if EpixReader.debug: print('subtraction done')
+                print('print no dark frame is available!')
+                #sys.exit(1)
+            else:
+                # subtract pixel by pixel
+                frame.super_rows -= toint( self.dark_frame_mean )
+                if EpixReader.debug: print('subtraction done')
                 #print('1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
-
+        
         # do analysis
         frame.super_rows, frame.clusters = self.frame_analysis.process(frame.super_rows)
 
@@ -145,7 +153,7 @@ class EpixReader(QThread):
                 self.__t0_sum_send_data = 0.
     
 
-    def add_dark_file(self, filename, maxFrames=100, alg='median'):
+    def add_dark_file(self, filename, maxFrames=10, alg='mean'):
         """ Process dark file """
         print('Adding dark file from', filename)
         dark_frame_sum = None
