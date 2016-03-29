@@ -1,18 +1,22 @@
 import sys
+import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import pythonDaq
+sys.path.append('/home/epix/run_software/python/pylib')
+import daq_client
 
 
 
 class DaqWorker(QThread):
     """Control the DAQ in this thread."""
-
+    
     def __init__(self,parent=None):
-        QThread.__init__(self,parent):
+        QThread.__init__(self,parent)
         self.state = ''
         # start the thread
-        #self.start()
+        self.start()
+        self.daq_client = None
         self.running = True
     
     def __del__(self):
@@ -25,23 +29,36 @@ class DaqWorker(QThread):
         print('DaqWorker: run')
 
         # open shared memory
-        pythonDaq.daqSharedDataOpen('epix', 1)
+        #pythonDaq.daqSharedDataOpen('epix', 1)
+        pythonDaq.daqOpen('epix', 1)
         
+        print('DaqWorker: open socket client')
+        self.daq_client = daq_client.DaqClient('localhost',8090)
+        print('DaqWorker: open socket client done')
+
+
+
         # print some status while thread is alove
         while self.running:            
-            print('DaqWorker: daq state "' + pythonDaq.getRunState + '"')
-            time.sleep(1)
+            print('DaqWorker: state "' + pythonDaq.daqGetRunState() + '"')
+            time.sleep(2)
     
 
     def reset(self):
         """Reset the DAQ."""
-        pythonDaq.HardReset()
+        print('[daq_worker] : hard reset')
+        pythonDaq.daqHardReset()
+        print('[daq_worker] : sleep')
+        time.sleep(5)
+        print('[daq_worker] : reset counters')
         pythonDaq.daqResetCounters()
+        print('[daq_worker] : reset done')
     
     def set_defaults(self):
         """Set DAQ defaults."""
         print('DaqWorker: set_defaults')
         pythonDaq.daqSetDefaults()
+        print('DaqWorker: set_defaults done')
         #pythonDaq.daqLoadSetttings(filepath)
         
 
@@ -57,16 +74,19 @@ class DaqWorker(QThread):
             print('Veryfying config ' + str(status))
             time.sleep(0.5)
         
-        pythonDaq.SoftReset()
+        pythonDaq.daqSoftReset()
 
-    def produce_dark_file(self, filename):
+    def generate_dark(self, args):
         """Create a dark file."""
-        print('DaqWorker: create dark file ' + filename)
+        print('DaqWorker: create dark file from args ')
+        print args
         self.configure()
         #self.set_run_parameters(run_type='dark',rate=1,count=10)
-        self.set_run_parameters(run_type='',rate=1,count=10)
-        self.start_run(filename)
-        self.stop_run()
+        #self.set_run_parameters(run_type='dark',rate=1,count=10)
+        self.start_run(args)
+        #{'filepath':filename, 'rate':'Dark', 'count':10})
+        # would like to be able to control from here when to actually stop
+        #self.stop_run()
     
     def set_run_parameters(self,run_type='',rate=1,count=10):
         """Set parameters for the run."""
@@ -74,16 +94,36 @@ class DaqWorker(QThread):
             rate_str = 'Dark'
         elif run_type == 'beam':
             rate_str = 'Beam'
+            count = 10000000
         else:
-            rate_str = str(self.rate) + 'Hz'
-        pythonDaq.daqSetRunParameters(rate_str,self.count)
+            rate_str = str(rate) + 'Hz'
+        pythonDaq.daqSetRunParameters(rate_str,count)
 
-    def start_run(self,filepath=''):
+    #def start_run(self,paramsfilepath='',set_def=True):
+    def start_run(self,params):
         """Start a run. """
-        print('DaqWorker: start run')
-        print('DaqWorker: save data to file "' + filepath + '"')
-        if filepath != '': 
-            self.open_file(filepath)        
+        print('DaqWorker: start run with params')        
+        print(params)
+
+        #defaults
+        rate_str = 'Beam'
+        count = 10000000
+        
+        # custom supplied
+        if params != None:
+            if params['filepath'] != None and params['filepath'] != '': 
+                self.open_file(params['filepath'])
+            if params['rate'] != None and params['rate'] != '':
+                rate_str = params['rate']
+            if params['count'] != None and  params['count'] > 0:
+                count = params['count']
+        
+                
+        # set the run parameters
+        print('rate_str ' + rate_str + ' count ' + str(count))
+        pythonDaq.daqSetRunParameters(rate_str, count)
+
+        # start the run
         self.set_run_state('Evr Running')
     
     def stop_run(self):
