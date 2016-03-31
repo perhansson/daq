@@ -12,6 +12,7 @@ from plots import EpixPlots, EpixPlot
 import epix_style
 from pix_utils import FrameAnalysisTypes
 from daq_worker_gui import *
+from plot_widgets import PlotWidget
 
 
 
@@ -59,13 +60,15 @@ class EpixEsaForm(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
 
-        #self.create_cluster_frame()
+        self.plot_widgets = []
 
         self.textbox.setText('Initializing...')
 
         # image to be displayed
         self.img = None
         self.on_draw()
+
+
 
     def create_daq_worker_gui(self, daq_worker=None, show=False):                
         # create the widget
@@ -325,6 +328,13 @@ class EpixEsaForm(QMainWindow):
             if self.debug: print ('done drawing')
             self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
 
+
+
+            # update other plots
+            self.emit(SIGNAL('new_data'), self.acc_frame)# self.last_frame)
+                
+
+
             # timer info
             self.__t0_sum += time.clock() - t0
             if self.nframes % 10 == 0:
@@ -487,8 +497,16 @@ class EpixEsaForm(QMainWindow):
         self.form_layout.addRow(textbox_select_analysis_label, self.combo_select_analysis) 
         self.form_layout.addRow(self.b_open_dark, self.textbox_dark_file)
         self.form_layout.addRow( textbox_plot_options_label, self.grid_cb)
-
         vbox.addLayout( self.form_layout )
+
+        vbox.addWidget( QLabel('Cluster plots') )
+        self.cluster_signal_hist_button = QPushButton("&Cluster signal")
+        self.cluster_signal_hist_button.clicked.connect(self.on_cluster_signal_hist)
+        hbox_plots = QHBoxLayout()
+        hbox_plots.addWidget( self.cluster_signal_hist_button) 
+        hbox_plots.addStretch(2)
+        vbox.addLayout( hbox_plots )
+        
 
         hbox_quit = QHBoxLayout()
         hbox_quit.addStretch(2)
@@ -499,6 +517,11 @@ class EpixEsaForm(QMainWindow):
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
 
+
+    def on_cluster_signal_hist(self):
+        w = PlotWidget('cluster signal hist',None, True)
+        self.connect(self, SIGNAL('new_data'), w.new_data)
+        self.plot_widgets.append( w )
 
     def on_quit(self):
         self.daq_worker_widget.close()
