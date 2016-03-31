@@ -36,10 +36,28 @@ def find_meanshift_clusters(data):
         print('x_arr')
         print(x_arr)
         signal_sum = 2000.
-        cluster.append(SimpleCluster(centers[k][1], centers[k][0],singal_sum,len(y_arr)))
+        cluster.append(SimpleCluster(centers[k][1], centers[k][0],signal_sum,len(y_arr)))
         cluster_frame[centers[k][1]][centers[k][0]] = signal_sum
     print('total Mean shift in {} sec'.format(time.clock()-t0))
     return cluster_frame, clusters
+
+def find_pixels_above_threshold( frame, threshold ):
+    """Apply a simple threshold to pixels."""
+
+    # select pixels above thresholds
+    frame_hit = (frame > threshold).astype(np.int16)
+    # find nonzero elements 
+    y_ids, x_ids = np.nonzero( frame_hit )
+    if len(y_ids) != len(x_ids):
+        print('inconsistent lengths')
+        sys.exit(1)
+    clusters = [ SimpleCluster(x_ids[i], y_ids[i], frame_hit[y_ids[i],x_ids[i]], 1) for i in range(len(y_ids)) ]
+    #n_hits = frame_hit[ np.nonzero( frame_hit ) ].size
+    # scale with actual signal for the nonzero pixels
+    frame_hit *= frame
+    return frame_hit, clusters
+
+
 
 def find_fixedwindow_clusters(a0, noise_level, n_sigma, window_size):
 

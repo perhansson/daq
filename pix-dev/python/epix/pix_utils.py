@@ -9,7 +9,7 @@ Created on Mon Feb 29 08:43:35 2016
 import numpy as np
 import os.path
 import time
-from clustering import find_seed_clusters, SimpleCluster, find_fixedwindow_clusters, find_meanshift_clusters
+from clustering import find_seed_clusters, SimpleCluster, find_fixedwindow_clusters, find_meanshift_clusters, find_pixels_above_threshold
 
 
 
@@ -96,11 +96,26 @@ class MeanShiftClusterAnalysis(FrameAnalysis):
         return find_meanshift_clusters(frame)
 
 
+class PixelThresholdAnalysis(FrameAnalysis):
+    """
+    Apply a simple threshold to pixels.
+    """
+
+    def __init__(self, name = 'pixel_thresh', threshold=20):
+        FrameAnalysis.__init__(self, name)
+        self.threshold = threshold
+    
+    def process(self,frame):
+        """ Do the actual analysis on the frame."""
+        return find_pixels_above_threshold( frame, self.threshold )
+
+
 
 
 class FrameAnalysisTypes(object):
-    """Frame analyses"""
+    """Hold all frame analysis to allow easy listing in GUIs."""
     types = [ FrameAnalysis('none'), \
+              PixelThresholdAnalysis(), \
               SimpleSeedAnalysis() , \
               CheapPhotonAnalysis(), \
               MeanShiftClusterAnalysis(), \
