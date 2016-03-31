@@ -67,13 +67,14 @@ class EpixEsaForm(QMainWindow):
         self.img = None
         self.on_draw()
 
-    def create_daq_worker_gui(self, daq_worker=None):                
+    def create_daq_worker_gui(self, daq_worker=None, show=False):                
         # create the widget
         self.daq_worker_widget  = DaqWorkerWidget()
         # add the daq connection
         if daq_worker != None:
             self.connect_daq_worker_gui(daq_worker)
-    
+        
+
     def connect_daq_worker_gui(self, daq_worker):        
         self.daq_worker_widget.connect_workers( daq_worker )
     
@@ -394,13 +395,24 @@ class EpixEsaForm(QMainWindow):
         # Create the navigation toolbar, tied to the canvas        
         self.mpl_toolbar = NavigationToolbar(self.canvas, self.main_frame)
         
+
+        self.form_layout = QFormLayout()
+
+
         # Other GUI controls
+        textbox_label = QLabel('Info:')
         self.textbox = QLineEdit()
         self.textbox.setMinimumWidth(100)
         self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
 
+        self.b_open_dark = QPushButton(self)
+        self.b_open_dark.setText('Select dark file')
+        self.b_open_dark.clicked.connect(self.daq_worker_widget.showDarkFileDialog)
+
+        textbox_dark_file_label = QLabel('Dark file:')
         self.textbox_dark_file = QLineEdit()
-        self.textbox_dark_file.setMinimumWidth(200)
+        #self.textbox_dark_file.setMaximumWidth(100)
+        #self.textbox_dark_file.setMinimumWidth(200)
         #self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
 
         textbox_integration_label = QLabel('Integrate frames (#):')
@@ -438,32 +450,51 @@ class EpixEsaForm(QMainWindow):
         self.connect(self.grid_cb, SIGNAL('stateChanged(int)'), self.on_draw)
         
         # Layout with box sizers         
-        hbox_cntrl = QHBoxLayout()
-        
-        for w in [  textbox_integration_label, self.textbox_integration,
-                    textbox_select_asic_label, self.combo_select_asic,
-                    textbox_select_analysis_label, self.combo_select_analysis,
-                    self.acq_button,
-                    self.reset_integration_button]:
-            hbox_cntrl.addWidget(w)
-            hbox_cntrl.setAlignment(w, Qt.AlignLeft) #Center)
-        
-        hbox_plotting = QHBoxLayout()
-        for w in [  textbox_plot_options_label, self.grid_cb ]:
-            hbox_plotting.addWidget(w)
-            hbox_plotting.setAlignment(w, Qt.AlignLeft) #Qt.AlignVCenter)
+        #hbox_plotting = QHBoxLayout()
+        #for w in [  textbox_plot_options_label, self.grid_cb ]:
+        #    hbox_plotting.addWidget(w)
+        #    hbox_plotting.setAlignment(w, Qt.AlignLeft) #Qt.AlignVCenter)
         
         vbox = QVBoxLayout()
+        self.form_layout_info = QFormLayout()
+        self.form_layout_info.addRow( textbox_label, self.textbox)
+        vbox.addLayout(self.form_layout_info)
+        vbox.addWidget(self.textbox)
         vbox.addWidget(self.canvas)
         vbox.addWidget(self.mpl_toolbar)
-        vbox.addWidget( self.textbox )
-        vbox.addWidget( self.textbox_dark_file )
-        vbox.addLayout(hbox_cntrl)
-        vbox.addLayout(hbox_plotting)
+
+        hbox_dark = QHBoxLayout()
+        hbox_dark.addWidget(self.b_open_dark)
+        hbox_dark.addWidget(textbox_dark_file_label)
+        hbox_dark.addWidget(self.textbox_dark_file)
 
         self.quit_button = QPushButton("&Quit")
         self.quit_button.clicked.connect(self.on_quit)
-        vbox.addWidget( self.quit_button )
+        self.daq_button = QPushButton("&DAQ Control GUI")
+        self.daq_button.clicked.connect(self.on_daq_control)
+
+        hbox_cntrl = QHBoxLayout()
+        hbox_cntrl.addWidget( self.acq_button)
+        hbox_cntrl.addWidget( self.daq_button )        
+        vbox.addLayout( hbox_cntrl )
+        vbox.addStretch(1)
+        hbox_dark_integration = QHBoxLayout()
+        hbox_dark_integration.addWidget( textbox_integration_label )
+        hbox_dark_integration.addWidget(  self.textbox_integration )
+        hbox_dark_integration.addWidget( self.reset_integration_button )
+        vbox.addLayout( hbox_dark_integration )
+        self.form_layout.addRow(textbox_select_asic_label, self.combo_select_asic)
+        self.form_layout.addRow(textbox_select_analysis_label, self.combo_select_analysis) 
+        self.form_layout.addRow(self.b_open_dark, self.textbox_dark_file)
+        self.form_layout.addRow( textbox_plot_options_label, self.grid_cb)
+
+        vbox.addLayout( self.form_layout )
+
+        hbox_quit = QHBoxLayout()
+        hbox_quit.addStretch(2)
+        hbox_quit.addWidget( self.quit_button)                            
+        
+        vbox.addLayout( hbox_quit )
 
         self.main_frame.setLayout(vbox)
         self.setCentralWidget(self.main_frame)
@@ -473,16 +504,18 @@ class EpixEsaForm(QMainWindow):
         self.daq_worker_widget.close()
         self.close()
 
+    def on_daq_control(self):
+        self.daq_worker_widget.show()
+
     def update_dark_file(self):
+        """Update the dark file used from the DAQ worker GUI."""
+
+        # update from the DAQ worker GUI if it's not empty and different than the one we have
         t = self.daq_worker_widget.textbox_dark_file.text()
-        if t != self.textbox_dark_file.text():
+        if t != self.textbox_dark_file.text() and str(t) != '':
             print('update dark file from \"' + str(t) + '\" to \"' + str(self.textbox_dark_file.text()) + '\"')
             self.textbox_dark_file.setText(t)
-            self.on_dark_file_select()
-        #else:
-        #print('dont update dark file')
-    
-    
+            self.on_dark_file_select()    
 
     def save_plot(self):
         file_choices = "PNG (*.png)|*.png"

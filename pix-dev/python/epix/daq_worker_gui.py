@@ -12,12 +12,13 @@ class DaqWorkerWidget(QWidget):
 
     __datadir = '/home/epix/data'
     
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, show=False):
         QWidget.__init__(self,parent)
         self.set_geometry()
         self.create_control()        
-        self.show()
-
+        if show:
+            self.show()
+    
     def set_geometry(self):
         self.setGeometry(10,10,500,300)
         self.setWindowTitle('Esa Daq Control')
