@@ -65,7 +65,7 @@ class SimpleFixedWindowClusterAnalysis(FrameAnalysis):
     Window size is configurable.    
     """
 
-    def __init__(self, name = 'fixed_window', noise_level=20, n_sigma=3, window_size=3):
+    def __init__(self, name = 'fixed_window', noise_level=100, n_sigma=3, window_size=3):
         FrameAnalysis.__init__(self, name)
         # noise level in ADC counts
         self.noise_level = noise_level
@@ -101,7 +101,7 @@ class PixelThresholdAnalysis(FrameAnalysis):
     Apply a simple threshold to pixels.
     """
 
-    def __init__(self, name = 'pixel_thresh', threshold=20):
+    def __init__(self, name = 'pixel_thresh', threshold=500):
         FrameAnalysis.__init__(self, name)
         self.threshold = threshold
     
