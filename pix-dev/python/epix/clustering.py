@@ -51,10 +51,10 @@ def find_pixels_above_threshold( frame, threshold ):
     if len(y_ids) != len(x_ids):
         print('inconsistent lengths')
         sys.exit(1)
+    frame_hit *= frame
     clusters = [ SimpleCluster(x_ids[i], y_ids[i], frame_hit[y_ids[i],x_ids[i]], 1) for i in range(len(y_ids)) ]
     #n_hits = frame_hit[ np.nonzero( frame_hit ) ].size
     # scale with actual signal for the nonzero pixels
-    frame_hit *= frame
     return frame_hit, clusters
 
 
