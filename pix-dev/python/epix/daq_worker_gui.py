@@ -174,6 +174,7 @@ def main():
     widget  = DaqWorkerWidget()
     daq_worker = DaqWorker()
     widget.connect_workers( daq_worker )
+    widget.show()
     sys.exit( app.exec_() )
     
     
