@@ -46,7 +46,7 @@ class EpixFrame(object):
     def add(self,other):
         """Add another frames data to the current one"""
         self.super_rows += other.super_rows
-    
+        self.clusters.extend(other.clusters)
         
     def get_data(self,asic):
         """Return data"""
