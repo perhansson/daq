@@ -25,7 +25,7 @@ class EpixEsaForm(QMainWindow):
         self.debug = debug
         #plt.ion()
 
-        # run state
+        # run state 
         self.run_state = 'Undefined'
 
         # Selected ASIC
@@ -124,6 +124,11 @@ class EpixEsaForm(QMainWindow):
         QMessageBox.information(self, "Click!", msg)
 
 
+    def send_busy(self, flag):
+        #if self.debug: 
+        print('[EpixEsaForm]: send busy ' + str(flag))
+        self.emit(SIGNAL("formBusy"), flag)
+
     def on_acq(self):
         """ Start or stop the acquisition of data"""
         if self.debug: print('on acq')
@@ -186,6 +191,8 @@ class EpixEsaForm(QMainWindow):
         """
 
         if self.debug: print ('on_draw ')
+
+        self.send_busy(True)
         
         t0 = time.clock()
 
@@ -345,7 +352,19 @@ class EpixEsaForm(QMainWindow):
             self.textbox.setText('No data available, frames processed: ' + str( self.nframes ))
     
         if self.debug: print('Completed draw in {0} s'.format(time.clock() - t0))
+        
+        busy_sleep = 2
+        t0 = time.clock()
+        print('[EpixEsaForm]: sleep from t0={0}'.format(t0))
+        i = 0
+        while i < busy_sleep:
+            time.sleep(1)
+            i += 1
+        
+        print('[EpixEsaForm]: busy slept for {0} sec'.format(i))
+        self.send_busy(False)
     
+
 
     def create_menu(self):        
 
@@ -536,7 +555,7 @@ class EpixEsaForm(QMainWindow):
         # update from the DAQ worker GUI if it's not empty and different than the one we have
         t = self.daq_worker_widget.textbox_dark_file.text()
         if t != self.textbox_dark_file.text() and str(t) != '':
-            print('update dark file from \"' + str(t) + '\" to \"' + str(self.textbox_dark_file.text()) + '\"')
+            print('update dark file to \"' + str(t) + '\" (prev was \"' + str(self.textbox_dark_file.text()) + '\")')
             self.textbox_dark_file.setText(t)
             self.on_dark_file_select()    
 

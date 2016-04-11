@@ -65,6 +65,7 @@ def main():
     form.connect(form, SIGNAL('selectASIC'),epixReader.select_asic)
     form.connect(form, SIGNAL('selectAnalysis'),epixReader.select_analysis)
     form.connect(form, SIGNAL('selectDarkFile'),epixReader.add_dark_file)
+    form.connect(form, SIGNAL('formBusy'),epixReader.set_form_busy)
 
 
     # open the control GUI and connection to the DAQ
