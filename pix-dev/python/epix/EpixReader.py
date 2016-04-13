@@ -27,7 +27,7 @@ class EpixReader(QThread):
         self.do_dark_subtraction = True
 
         # time in seconds between frame reads
-        self.frame_sleep = 1
+        self.frame_sleep = -1.0
         
         # integrate 'n' number of frames before sending
         self.integrate = 1
@@ -41,6 +41,9 @@ class EpixReader(QThread):
         # number of frames sent
         self.n_sent = 0
 
+        # number of frames not sent due to busy
+        self.n_busy = 0
+
         # time to build and send frame
         self.__t0_sum_send_data = 0.
 
@@ -50,8 +53,8 @@ class EpixReader(QThread):
 
     def set_form_busy(self,a):
         """ Set busy word from form."""
-        #if EpixReader.debug: 
-        print('[EpixReader]: set form busy to  ' + str(a) )
+        if EpixReader.debug: 
+            print('[EpixReader]: set form busy to  ' + str(a) )
         self.form_busy = a
     
     def select_analysis(self,a):
@@ -149,7 +152,8 @@ class EpixReader(QThread):
         if self.frame.n >= self.integrate:
 
             if self.form_busy:
-                print('[EpixReader]: form is busy. Drop this one.')
+                print('[EpixReader]: form is busy.')
+                self.n_busy += 1
             else:
                 if EpixReader.debug: 
                     print('[EpixReader]: sending frame after ', self.frame.n, ' integrations')
@@ -158,14 +162,17 @@ class EpixReader(QThread):
                 # timers
                 self.n_sent += 1
                 self.__t0_sum_send_data += time.clock() - t0
-                if self.n_sent % 10 == 0:
-                    print('[EpixReader]: sent {0} frames with {1} sec/frame'.format( self.n_sent, self.__t0_sum_send_data/10.))
-                    self.__t0_sum_send_data = 0.
                 
             # reset fames
             self.frame = None
             #self.frame.n = 0
-    
+
+        # print timing
+        if self.n_sent % 10 == 0:
+            print('[EpixReader]: sent {0} frames with {1} sec/frame. busy {2} of {3} or {4} busy or '.format( self.n_sent, self.__t0_sum_send_data/10., self.n_busy, self.n_sent+self.n_busy, float(self.n_busy)/float(self.n_sent+self.n_busy)))
+            self.__t0_sum_send_data = 0.
+        
+
 
     def add_dark_file(self, filename, maxFrames=10, alg='mean'):
         """ Process dark file """
@@ -278,7 +285,7 @@ class EpixReader(QThread):
             self.do_dark_frame_subtraction = True
         print 'Done loading dark frame'
 
-    def set_frame_period(self, val_sec):
+    def set_frame_sleep(self, val_sec):
         self.frame_sleep= val_sec
 
 

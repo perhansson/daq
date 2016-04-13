@@ -9,7 +9,7 @@ from PyQt4.QtCore import *
 from EpixReader import EpixReader
 from EpixFileReader import EpixFileReader
 from EpixShMemReader import EpixShMemReader
-from online_gui_epix import EpixEsaForm
+from EpixEsaMainWindow import *
 from daq_worker import DaqWorker
 
 def get_args():
@@ -20,6 +20,8 @@ def get_args():
     parser.add_argument('--go','-g',action='store_true',help='start acquisition')
     parser.add_argument('--debug',action='store_true',help='debug toggle')
     parser.add_argument('--asic','-a', type=int, default=0, help='ASIC to read data from (0-3, -1 for all).')
+    parser.add_argument('--update','-u', type=float, default=1.0, help='Time interval in seconds to wait between reading a frame.')
+    parser.add_argument('--integration','-i', default=1, help='Number of frames to integrate.')
     args = parser.parse_args()
     print( args )
     return args
@@ -31,16 +33,17 @@ def main():
     app = QApplication(sys.argv)
 
     # create the GUI
-    form = EpixEsaForm(parent=None, debug=False)
+    form = EpixEsaMainWindow(parent=None, debug=False)
 
     # create the data reader
     epixReader = None
     if args.light:
         epixReader = EpixFileReader(args.light)
-        # set the simulated trigger rate
-        epixReader.set_frame_period(0.1)
     else:        
         epixReader = EpixShMemReader()
+
+    # set the sleep in sec's between frame reads
+    epixReader.set_frame_sleep(args.update)
 
     # set debug flag for the reader
     EpixReader.debug = args.debug
@@ -54,6 +57,9 @@ def main():
     # set the form at startup
     form.combo_select_asic.setCurrentIndex( args.asic + 1 )
     print('current index ' + str( form.combo_select_asic.currentIndex() ) )
+
+    # set the integration for the start
+    form.set_integration( args.integration )
     
     # Connect data to the GUI
     form.connect(epixReader,SIGNAL('newDataFrame'),form.newDataFrame)
@@ -61,7 +67,6 @@ def main():
 
     # Connect acq control to the reader
     form.connect(form, SIGNAL('acqState'),epixReader.change_state)
-    form.connect(form, SIGNAL('integrationCount'),epixReader.set_integration)
     form.connect(form, SIGNAL('selectASIC'),epixReader.select_asic)
     form.connect(form, SIGNAL('selectAnalysis'),epixReader.select_analysis)
     form.connect(form, SIGNAL('selectDarkFile'),epixReader.add_dark_file)
@@ -91,7 +96,9 @@ def main():
     if args.go:
         epixReader.set_state('Running')
 
-    print('333')
+
+    print ('[run_epix_gui]: main thread ' , app.instance().thread())
+
 
     # run the app
     sys.exit( app.exec_() )

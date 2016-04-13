@@ -30,6 +30,7 @@ class EpixShMemReader(EpixReader):
 
         # timers
         t0_nframes = 0.
+        t0_last = 0
 
         while True:
 
@@ -38,8 +39,25 @@ class EpixShMemReader(EpixReader):
                 if EpixReader.debug: print('EpixShMemReader thread waiting')
                 time.sleep(1.0)
                 continue
-            
+ 
+            # determine read interval
+            if self.frame_sleep > 0:
+                n = 0
+                n_target = self.frame_sleep/0.01
+                t0_test = time.clock()
+                #print('t0_test {0} clock {1} t0_last {2}'.format(t0_test,time.clock(), t0_last))
+                while True:
+                    if n < n_target:
+                        time.sleep(0.01)
+                        n += 1
+                    else:
+                        break
+                dt_test = time.clock() - t0_test
+                if self.debug: 
+                    if n_frames % 10 == 0: print('[EpixShMemReader] sleeps for {0} sec before reading'.format(self.frame_sleep))
+           
             t0 = time.clock()
+            t0_last = t0
 
             # read from shared memory
             data = pythonDaq.daqSharedDataRead()

@@ -108,7 +108,7 @@ def find_fixedwindow_clusters(a0, noise_level, n_sigma, window_size):
                     #print(a0[iy:iy+window_size, ix:ix+window_size])
                     cluster_frame[iy+window_size/2,ix+window_size/2] = signal_sum
                     clusters.append( SimpleCluster(ix+window_size/2,iy+window_size/2,signal_sum,n_above))
-    print( 'Found ' + str(len(clusters)) + ' clusters in '+str(time.clock()-t0)+' s (total signal: ' + str (np.sum(cluster_frame)) + ' average signal ' + str(np.sum(cluster_frame)/len(clusters)))
+    #print( 'Found ' + str(len(clusters)) + ' clusters in '+str(time.clock()-t0)+' s (total signal: ' + str (np.sum(cluster_frame)) + ' average signal ' + str(np.sum(cluster_frame)/len(clusters)))
     return cluster_frame, clusters
 
 
