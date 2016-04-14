@@ -37,26 +37,12 @@ class EpixFileReader(EpixReader):
                     # wait until state is correct
                     if self.state != 'Running':
                         if EpixReader.debug: print('EpixFileReader thread waiting')
-                        time.sleep(1.0)
+                        self.sleep(1)
                         continue
 
 
                     # determine read interval
-                    if self.frame_sleep > 0:
-                        n = 0
-                        n_target = self.frame_sleep/0.01
-                        t0_test = time.clock()
-                        #print('t0_test {0} clock {1} t0_last {2}'.format(t0_test,time.clock(), t0_last))
-                        while True:
-                            if n < n_target:
-                                time.sleep(0.01)
-                                n += 1
-                            else:
-                                break
-                        dt_test = time.clock() - t0_test
-                        print('EpixFileReader slept for {0} sec'.format(self.frame_sleep))
-           
-
+                    self.do_frame_sleep()
                                 
                     t0 = time.clock()
                     t0_last = t0
@@ -83,7 +69,7 @@ class EpixFileReader(EpixReader):
                         print(n, ' got weird size from file fs ', fs , ' ret ', ret)
                     
                     #ans = raw_input('next frame?')
-                    time.sleep(self.frame_sleep)
+                    #time.sleep(self.frame_sleep)
                     n += 1
             except IndexError:
                 print(' - read ', n, ' times and got ', n_frames,' frames from file')

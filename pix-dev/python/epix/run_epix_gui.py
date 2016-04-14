@@ -20,7 +20,7 @@ def get_args():
     parser.add_argument('--go','-g',action='store_true',help='start acquisition')
     parser.add_argument('--debug',action='store_true',help='debug toggle')
     parser.add_argument('--asic','-a', type=int, default=0, help='ASIC to read data from (0-3, -1 for all).')
-    parser.add_argument('--update','-u', type=float, default=1.0, help='Time interval in seconds to wait between reading a frame.')
+    parser.add_argument('--update','-u', type=int, default=0, help='Time in in milliseconds to sleep between reading a frame.')
     parser.add_argument('--integration','-i', default=1, help='Number of frames to integrate.')
     args = parser.parse_args()
     print( args )

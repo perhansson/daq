@@ -2,7 +2,6 @@ import sys
 import os
 import time
 import numpy as np
-import matplotlib
 from frame import EpixFrame, EpixIntegratedFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -27,7 +26,7 @@ class EpixReader(QThread):
         self.do_dark_subtraction = True
 
         # time in seconds between frame reads
-        self.frame_sleep = -1.0
+        self.frame_sleep = 0
         
         # integrate 'n' number of frames before sending
         self.integrate = 1
@@ -40,9 +39,12 @@ class EpixReader(QThread):
 
         # number of frames sent
         self.n_sent = 0
+        self.n_sent_busy = 0
 
         # number of frames not sent due to busy
         self.n_busy = 0
+
+        # number of frames sent
 
         # time to build and send frame
         self.__t0_sum_send_data = 0.
@@ -161,6 +163,7 @@ class EpixReader(QThread):
                 self.emit(SIGNAL("newDataFrame"),self.frame)
                 # timers
                 self.n_sent += 1
+                self.n_sent_busy +=1
                 self.__t0_sum_send_data += time.clock() - t0
                 
             # reset fames
@@ -169,8 +172,11 @@ class EpixReader(QThread):
 
         # print timing
         if self.n_sent % 10 == 0:
-            print('[EpixReader]: sent {0} frames with {1} sec/frame. busy {2} of {3} or {4} busy or '.format( self.n_sent, self.__t0_sum_send_data/10., self.n_busy, self.n_sent+self.n_busy, float(self.n_busy)/float(self.n_sent+self.n_busy)))
+            print('[EpixReader]: sent total of {0} frames with {1} sec/frame. busy {2} of {3} or {4}% busy in thread {5}'.format( self.n_sent, self.__t0_sum_send_data/10., self.n_busy, self.n_sent_busy+self.n_busy, 100*float(self.n_busy)/float(self.n_sent_busy+self.n_busy), str(QThread.currentThread())))
+            #print('[EpixReader]: send_data current thread ' + str(QThread.currentThread()))
             self.__t0_sum_send_data = 0.
+            self.n_busy = 0
+            self.n_sent_busy = 0
         
 
 
@@ -285,10 +291,25 @@ class EpixReader(QThread):
             self.do_dark_frame_subtraction = True
         print 'Done loading dark frame'
 
-    def set_frame_sleep(self, val_sec):
-        self.frame_sleep= val_sec
+    def set_frame_sleep(self, val_msec):
+        self.frame_sleep = val_msec
 
-
+    def do_frame_sleep(self):
+        if self.frame_sleep > 0:
+            n = 0
+            n_target = self.frame_sleep
+            #print('sleep ' + str(self.frame_sleep))
+            while (n < self.frame_sleep):
+                time.sleep(0.001)
+                n += 1
+                #print('n ' + str(n) + ' / ' + str(n_target))
+                #if n > self.frame_sleep:
+                #    print('WHATA F')
+                #if n > 100:
+                #    print('WHATA F2')
+    
+            #if n_frames % 10 == 0: print('[EpixShMemReader] sleeps for {0} sec before reading'.format(self.frame_sleep))
+    
 
         
         

@@ -197,8 +197,7 @@ class EpixEsaMainWindow(QMainWindow):
         """ Redraws the figure
         """
 
-        #if self.debug: 
-        print ('[EpixEsaMainWindow]: on_draw ')
+        if self.debug: print ('[EpixEsaMainWindow]: on_draw ')
 
         self.send_busy(True)
         
@@ -210,7 +209,7 @@ class EpixEsaMainWindow(QMainWindow):
 
             # update dark file if needed
             self.update_dark_file()
-
+            
             # update the asic being plotted - not sure I need this anymore
             self.__asic_plotted = self.select_asic
             
@@ -218,28 +217,28 @@ class EpixEsaMainWindow(QMainWindow):
 
             # send data to other widgets
 
-            print ('[EpixEsaMainWindow]: get_data from frame')
+            #print ('[EpixEsaMainWindow]: get_data from frame')
 
             data = self.last_frame.get_data(self.select_asic)
 
-            print ('[EpixEsaMainWindow]: emit data')
+            #print ('[EpixEsaMainWindow]: emit data')
 
             self.emit(SIGNAL('new_data'), data)
 
-            print ('[EpixEsaMainWindow]: emit new_clusters')
+            #print ('[EpixEsaMainWindow]: emit new_clusters')
 
             self.emit(SIGNAL('new_clusters'), self.last_frame.clusters)
 
-            print ('[EpixEsaMainWindow]: emit cluster_count')
+            #print ('[EpixEsaMainWindow]: emit cluster_count')
 
             self.emit(SIGNAL('cluster_count'), len(self.last_frame.clusters))
 
-            print ('[EpixEsaMainWindow]: DONE emit')
+            #print ('[EpixEsaMainWindow]: DONE emit')
                 
             # timer info
             self.__t0_sum += time.clock() - t0
             if self.nframes % 10 == 0:
-                print('[EpixEsaMainWindow]: EpixEsaMainWindow {0} frames with {1} sec/frame'.format(self.nframes, self.__t0_sum/10.))
+                print('[EpixEsaMainWindow]: emit {0} frames  {1} sec/frame'.format(self.nframes, self.__t0_sum/10.))
                 self.__t0_sum = 0.
         
         else:
@@ -414,33 +413,35 @@ class EpixEsaMainWindow(QMainWindow):
 
     def on_cluster_signal_hist(self):
         w = HistogramWidget('cluster signal hist',None, True, self.integration_count)
-        self.connect_function(SIGNAL('new_clusters'), w.thread.new_data)
+        self.connect_function(SIGNAL('new_clusters'), w.worker.new_data)
         #self.connect(self, SIGNAL('new_clusters'), w.thread.new_data)
-        w.connect(w, SIGNAL('on_quit'), self.on_cluster_signal_hist_quit)
+        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_signal_hist_quit)
+        #w.connect(w, SIGNAL('finished()'), self.on_cluster_signal_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( w )
 
     def on_cluster_count_hist(self):
         w = CountHistogramWidget('cluster count hist',None, True, self.integration_count)
-        self.connect_function(SIGNAL('cluster_count'), w.thread.new_data)
+        self.connect_function(SIGNAL('cluster_count'), w.worker.new_data)
         #self.connect(self, SIGNAL('cluster_count'), w.thread.new_data)
-        w.connect(w, SIGNAL('on_quit'), self.on_cluster_count_hist_quit)
+        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_count_hist_quit)
+        #w.connect(w, SIGNAL('finished()'), self.on_cluster_count_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( w )
 
     def on_cluster_strip_count_hist(self):
         w = StripWidget('cluster strip_count hist',None, True, self.integration_count,50)
-        self.connect_function(SIGNAL('cluster_count'), w.thread.new_data)
-        w.connect(w, SIGNAL('on_quit'), self.on_cluster_strip_count_hist_quit)
+        self.connect_function(SIGNAL('cluster_count'), w.worker.new_data)
+        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_strip_count_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( w )
 
 
     def on_frame(self):
         w = ImageWidget('frame',None, True, self.integration_count)
-        self.connect_function(SIGNAL('new_data'), w.thread.new_data )
+        self.connect_function(SIGNAL('new_data'), w.worker.new_data )
         #self.connect(self, SIGNAL('new_data'), w.thread.new_data)
-        w.connect(w, SIGNAL('on_quit'), self.on_frame_quit)
+        #w.connect(w, SIGNAL('on_quit'), self.on_frame_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( w )
 
@@ -486,11 +487,19 @@ class EpixEsaMainWindow(QMainWindow):
                 print('[EpixEsaMainWindow]: disconnected {0}'.format(w.name))
     
 
+    def closeEvent(self, event):
+        can_exit = True
+        self.on_quit()
+        if can_exit:
+            event.accept()
+        else:
+            event.ignore()
+
     def on_quit(self):
         self.daq_worker_widget.close()
         for w in self.plot_widgets:
             w.close()
-        self.close()
+        #self.close()
 
     def on_daq_control(self):
         self.daq_worker_widget.show()

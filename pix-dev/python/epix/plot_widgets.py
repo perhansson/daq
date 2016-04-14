@@ -5,48 +5,54 @@ import os
 import time
 import datetime
 import numpy as np
+import copy
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt4agg import NavigationToolbar2QTAgg as NavigationToolbar
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from daq_worker import DaqWorker
+from pix_threading import MyQThread
+
+printThreadInfo = False
 
 
-
-
-class PlotWorker(QThread):
+class PlotWorker(QObject):
 
     def __init__(self, name, parent = None, n_integrate = 1):    
-        QThread.__init__(self, parent)
+        #QThread.__init__(self, parent)
+        super(PlotWorker, self).__init__()
         self.exiting = False
         self.name = name
         self.n_integrate = n_integrate
         self.n = 0
-        self.start()
+        #self.start()
 
 
     def set_integration(self,n):
         self.n_integrate = n
     
-    def __del__(self):    
-        self.exiting = True
-        self.wait()
+    #def __del__(self):    
+    #    self.exiting = True
+    #    self.wait()
 
     def print_thread(self,msg):
-        print('[PlotWorker]: \"' + self.name + '\" ' + msg + ' in thread ' + str(self.currentThread()))
-    
+        global printThreadInfo
+        if printThreadInfo:
+            print('[PlotWorker]: \"' + self.name + '\" ' + msg + ' in thread ' + str(QThread.currentThread()))
+
     def new_data(self,data):
         """Abstract function"""
+        print('abstract new_data function called!')
     
-    def run(self):
-        self.print_thread('start thread \"' + self.name + '\"')
-        i = 0
-        while not self.exiting:
-            time.sleep(0.01)
-            if (i*0.01) % 10 == 0:
-                self.print_thread('alive {0}'.format(i))
-            i += 1
+    #def run(self):
+    #    self.print_thread('start thread \"' + self.name + '\"')
+    #    i = 0
+    #    while not self.exiting:
+    #        time.sleep(0.01)
+    #        if (i*0.01) % 10 == 0:
+    #            self.print_thread('alive {0}'.format(i))
+    #        i += 1
     
 
 
@@ -63,15 +69,53 @@ class PlotWidget(QWidget):
         self.n = 0
         self.t0sum = 0.
         self.debug = False
-        self.thread = None
         self.x_label = ''
         self.y_label = ''
         self.title = self.name 
         self.txt = None
+        self.thread = MyQThread()
+        self.thread.start()
+        self.worker = None
+        
         if show:
             self.show()
     
 
+    def closeEvent(self, event):
+        #self.emit(SIGNAL('on_quit'), self.name)
+        print('[PlotWidget] : \"' + self.name + '\" closeEvent')
+        self.thread.quit()
+        can_exit = self.thread.wait(1000)        
+        #can_exit = True
+        if can_exit:
+            print('[PlotWidget] : \"' + self.name + '\" thread quit successfully')            
+            event.accept()
+        else:
+            print('[PlotWidget] : \"' + self.name + '\" thread quit timed out')
+            self.thread.terminate()
+            can_exit = self.thread.wait(1000)        
+            if can_exit:
+                print('[PlotWidget] : \"' + self.name + '\" thread terminated successfully')            
+                event.accept()
+            else:
+                print('[PlotWidget] : ERROR \"' + self.name + '\" thread failed to die')
+                #event.ignore()
+    
+
+    #def on_quit(self):
+    #    self.emit(SIGNAL('on_quit'), self.name)
+    #    if self.thread != None:
+    #        print('[PlotWidget] on_quit, quit the worker thread.')
+    #        self.thread.exiting = True
+    #        while not self.thread.exiting:
+    #            print('thread still going')
+    #    self.close()
+
+    def print_thread(self,msg):
+        global printThreadInfo
+        if printThreadInfo:
+            print('[PlotWidget]: \"' + self.name + '\" ' + msg + ' in thread ' + str(QThread.currentThread()))
+    
     def set_x_label(self,s):
         self.x_label = s
 
@@ -83,18 +127,9 @@ class PlotWidget(QWidget):
 
     def set_integration(self,n):
         print('[PlotWidget]: set_integation to ' + str(n))
-        if self.thread != None:
-            self.thread.set_integration( n )
+        if self.worker != None:
+            self.worker.set_integration( n )
     
-    def on_quit(self):
-        self.emit(SIGNAL('on_quit'), self.name)
-        if self.thread != None:
-            print('[PlotWidget] on_quit, quit the worker thread.')
-            self.thread.exiting = True
-            while not self.thread.exiting:
-                print('thread still going')
-        self.close()
-
     def set_geometry(self):
         self.setGeometry(10,10,500,500)
         self.setWindowTitle( self.name )
@@ -142,13 +177,13 @@ class PlotWidget(QWidget):
         vbox.addWidget( self.mpl_toolbar )
 
         # create quit button
-        self.quit_button = QPushButton(self)
-        self.quit_button.setText('Close')
-        self.quit_button.clicked.connect(self.on_quit)
-        hbox = QHBoxLayout()
-        hbox.addWidget( self.quit_button )
-        hbox.addStretch(2)
-        vbox.addLayout( hbox )
+        #self.quit_button = QPushButton(self)
+        #self.quit_button.setText('Close')
+        #self.quit_button.clicked.connect(self.on_quit)
+        #hbox = QHBoxLayout()
+        #hbox.addWidget( self.quit_button )
+        #hbox.addStretch(2)
+        #vbox.addLayout( hbox )
 
         self.setLayout( vbox )
 
@@ -165,7 +200,7 @@ class HistogramWorker(PlotWorker):
         PlotWorker.__init__(self, name, parent, n_integrate)
         self.bins =  np.arange(0,6000,100)
         self.y = np.zeros_like(self.bins)
-    
+
     def new_data(self,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
@@ -182,7 +217,7 @@ class HistogramWorker(PlotWorker):
         #x = [ (cl.signal) for cl in data ]
         self.n += 1
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL(self.name + 'cluster_signal'), self.bins,self.y)
+            self.emit(SIGNAL('data'), self.bins,self.y)
             self.n = 0
             self.y = np.zeros_like(self.bins)
         
@@ -195,11 +230,16 @@ class HistogramWidget(PlotWidget):
     __datadir = '/home/epix/data'
     
     def __init__(self, name, parent=None, show=False, n_integrate = 1):
-        PlotWidget.__init__(self,name, parent, show)        
-        self.thread = HistogramWorker(self.name, None, n_integrate)
-        self.connect(self.thread, SIGNAL(self.name + 'cluster_signal'), self.on_draw)
+        PlotWidget.__init__(self,name, parent, show) 
+        self.worker = HistogramWorker(self.name, parent, n_integrate)
+        self.worker.moveToThread( self.thread )
+        #self.thread = HistogramWorker(self.name, None, n_integrate)
+        self.connect(self.worker, SIGNAL('data'), self.on_draw)
+        self.worker.print_thread('worker init')
     
-    def on_draw(self, x,y):
+    def on_draw(self, x, y):
+
+        self.print_thread('on_draw')
 
         t0 = time.clock()
 
@@ -221,11 +261,11 @@ class HistogramWidget(PlotWidget):
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
         self.ax.set_title(self.title + ' ' + str(self.n) + ' frames')
-        x_txt = 1000.0
-        y_txt = np.max(y)
-        mean = np.average(x,axis=0,weights=y)
-        self.txt.set_text('mean {0:.1f}'.format(mean))
-        #self.ax.text(x_txt, y_txt, 'mean {0}'.format(mean))
+        #x_txt = 1000.0
+        #y_txt = np.max(y)
+        if len(x) > 0 and np.max(y) > 0:
+            mean = np.average(x,axis=0,weights=y)
+            self.txt.set_text('mean {0:.1f}'.format(mean))
         self.canvas.draw()
         self.n += 1
         
@@ -291,7 +331,7 @@ class CountHistogramWorker(PlotWorker):
         self.n += 1
 
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL(self.name + 'count'), self.bins, self.y)
+            self.emit(SIGNAL('data'), self.bins, self.y)
             self.n = 0
             self.y = np.zeros_like(self.bins)
 
@@ -303,11 +343,16 @@ class CountHistogramWidget(PlotWidget):
     __datadir = '/home/epix/data'
     
     def __init__(self, name, parent=None, show=False, n_integrate = 1):
-        PlotWidget.__init__(self,name, parent, show)
-        self.thread = CountHistogramWorker(self.name, None, n_integrate)
-        self.connect(self.thread, SIGNAL(self.name + 'count'), self.on_draw)
+        PlotWidget.__init__(self, name, parent, show)
+        self.worker = CountHistogramWorker(self.name, parent, n_integrate)
+        self.worker.moveToThread( self.thread )
+        #self.thread = CountHistogramWorker(self.name, None, n_integrate)
+        self.connect(self.worker, SIGNAL('data'), self.on_draw)
+        self.worker.print_thread('worker init')
     
     def on_draw(self, x, y):
+
+        self.print_thread('on_draw')
         #print('x')
         #print(x)
         #print('y')
@@ -328,8 +373,9 @@ class CountHistogramWidget(PlotWidget):
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
         self.ax.set_title(self.title + ' ' + str(self.n) + ' frames')
-        mean = np.average(x,axis=0,weights=y)
-        self.txt.set_text('mean {0:.1f}'.format(mean))
+        if len(x) > 0 and np.max(y) > 0:
+            mean = np.average(x,axis=0,weights=y)
+            self.txt.set_text('mean {0:.1f}'.format(mean))
         self.canvas.draw()
         self.n += 1
         
@@ -354,7 +400,6 @@ class ImageWorker(PlotWorker):
     def new_data(self,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
-        print(self.currentThread())
         #print('ImageWorker: process frame and send shape ' + str(np.shape(data)))
         if self.d == None:
             self.d = data
@@ -363,7 +408,7 @@ class ImageWorker(PlotWorker):
         self.n += 1
 
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL(self.name + 'frame'), data)
+            self.emit(SIGNAL('data'), data)
             self.n = 0
             self.d = None
 
@@ -375,10 +420,15 @@ class ImageWidget(PlotWidget):
     def __init__(self, name, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self,name, parent, show)
         self.d = None
-        self.thread = ImageWorker(self.name, None, n_integrate)
-        self.connect(self.thread, SIGNAL(self.name + 'frame'), self.on_draw)
+        self.worker = ImageWorker(self.name, parent, n_integrate)
+        self.worker.moveToThread( self.thread )
+        #self.thread = ImageWorker(self.name, None, n_integrate)
+        self.connect(self.worker, SIGNAL('data'), self.on_draw)
+        self.worker.print_thread('worker init')
 
     def on_draw(self, data):
+
+        self.print_thread('on_draw')
         
         t0 = time.clock()
 
@@ -432,7 +482,7 @@ class StripWorker(PlotWorker):
             #print('StripWorker: send x and y')
             #print (self.x)
             #print (self.y)
-            self.emit(SIGNAL(self.name + 'strip'), self.x, self.y)
+            self.emit(SIGNAL('data'), self.x, self.y)
             self.n = 0
             #self.d = None
         self.print_thread('new_data DONE')
@@ -443,11 +493,15 @@ class StripWidget(PlotWidget):
     def __init__(self, name, parent=None, show=False, n_integrate = 1, max_hist=10):
         PlotWidget.__init__(self,name, parent, show)
         self.d = None
-        self.thread = StripWorker(self.name, None, n_integrate, max_hist)
-        self.connect(self.thread, SIGNAL(self.name + 'strip'), self.on_draw)
+        self.worker = StripWorker(self.name, parent, n_integrate)
+        self.worker.moveToThread( self.thread )
+        #self.thread = StripWorker(self.name, None, n_integrate, max_hist)
+        self.connect(self.worker, SIGNAL('data'), self.on_draw)
+        self.worker.print_thread('worker init')
 
     def on_draw(self, x, y):
         
+        self.print_thread('on_draw')
 
         t0 = time.clock()
         if self.ax == None:
