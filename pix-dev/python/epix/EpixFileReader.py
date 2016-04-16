@@ -63,8 +63,8 @@ class EpixFileReader(EpixReader):
                         n_frames += 1
                         
                         # send the data
-                        self.send_data( ret )
-                        
+                        #self.send_data( ret )
+                        self.emit_data( ret )
                     else:
                         print(n, ' got weird size from file fs ', fs , ' ret ', ret)
                     

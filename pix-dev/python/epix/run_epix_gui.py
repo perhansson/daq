@@ -11,6 +11,7 @@ from EpixFileReader import EpixFileReader
 from EpixShMemReader import EpixShMemReader
 from EpixEsaMainWindow import *
 from daq_worker import DaqWorker
+from frame_worker import FrameWorkerController
 
 def get_args():
     parser = argparse.ArgumentParser('ePix online monitoring.')
@@ -32,9 +33,6 @@ def main():
     # create the Qapp
     app = QApplication(sys.argv)
 
-    # create the GUI
-    form = EpixEsaMainWindow(parent=None, debug=False)
-
     # create the data reader
     epixReader = None
     if args.light:
@@ -51,26 +49,42 @@ def main():
     # initialize the state (need to set the GUI status...)
     epixReader.set_state('Stopped')
 
+    #### create the data frame processor
+    frameProcessor = FrameWorkerController('frame_processor')
+
+    # connect the data frame from reader to processor
+    epixReader.connect(epixReader, SIGNAL('data_frame'), frameProcessor.worker.process)
+    epixReader.connect(epixReader,SIGNAL('dark_mean'), frameProcessor.worker.set_dark_mean)
+    #frameProcessor.worker.connect(frameProcessor.worker,SIGNAL('busy'), epixReader.set_form_busy)
+    
     # read only selected asic
-    epixReader.select_asic( args.asic )
+    frameProcessor.worker.select_asic( args.asic )
+
+    #### create the main GUI
+    form = EpixEsaMainWindow(parent=None, debug=False)
+
+    # this might be a little weird but I need to connect signals firectly 
+    # from widgets started inside the gui to the frame processor...
+    form.frame_processor = frameProcessor
 
     # set the form at startup
     form.combo_select_asic.setCurrentIndex( args.asic + 1 )
-    print('current index ' + str( form.combo_select_asic.currentIndex() ) )
 
     # set the integration for the start
     form.set_integration( args.integration )
     
-    # Connect data to the GUI
-    form.connect(epixReader,SIGNAL('newDataFrame'),form.newDataFrame)
+    # Connect reader to the GUI
     form.connect(epixReader,SIGNAL('newState'),form.newState)
 
-    # Connect acq control to the reader
+    # Connect GUI to the reader
     form.connect(form, SIGNAL('acqState'),epixReader.change_state)
-    form.connect(form, SIGNAL('selectASIC'),epixReader.select_asic)
-    form.connect(form, SIGNAL('selectAnalysis'),epixReader.select_analysis)
     form.connect(form, SIGNAL('selectDarkFile'),epixReader.add_dark_file)
-    form.connect(form, SIGNAL('formBusy'),epixReader.set_form_busy)
+
+    # Connect data processor to the GUI
+    frameProcessor.worker.connect(frameProcessor.worker,SIGNAL('new_data'), form.newDataFrame)
+    form.connect(form, SIGNAL('selectASIC'),frameProcessor.worker.select_asic)
+    form.connect(form, SIGNAL('selectAnalysis'),frameProcessor.worker.select_analysis)
+    #form.connect(form, SIGNAL('formBusy'),frameProcessor.worker.set_form_busy)
 
 
     # open the control GUI and connection to the DAQ

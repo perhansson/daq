@@ -9,9 +9,31 @@ Created on Mon Feb 29 08:43:35 2016
 import numpy as np
 import os.path
 import time
+from Photons import Photons
 from clustering import find_seed_clusters, SimpleCluster, find_fixedwindow_clusters, find_meanshift_clusters, find_pixels_above_threshold
 
 
+class FrameTimer(object):
+    def __init__(self, name):
+        self.name = name
+        self.t0 = 0
+        self.t1 = 0
+    def start(self):
+        self.t0 = time.clock()
+    def stop(self):
+        self.t1 = time.clock()
+    def diff(self):
+        return self.t1 - self.t0
+    def toString(self):
+        return '[Timer]: \"{0}\" {1} sec'.format(self.name, self.diff())
+
+
+def get_timer_data(timers):
+    """Return the sum of time in the timers and the number of them."""
+    tot = 0
+    for t in timers:
+        tot += t.diff()
+    return tot, len(timers)
 
 class FrameAnalysis(object):
     """Analysis to run on a frame."""
@@ -31,12 +53,23 @@ class CheapPhotonAnalysis(FrameAnalysis):
     """Cheap photon analysis."""
     def __init__(self):
         FrameAnalysis.__init__(self, 'cheap_photons')
-    
     def process(self,frame):
         """ Do the actual analysis on the frame."""
-        raise NotImplementedError
-
-
+        photon=Photons(1,frame);
+        electronlist=photon.blobs(frame);
+        #and it will return a photon list in a numpy array, with one row for each "electron" (as defined above) and 4 columns: [isize,iy,ix,E[ipart]]. isize means it fits in an isize*isize box, not that it's s
+        #You can use any number over 1 to define the maximum cluster size you care about. Probably a 4 (as in 4x4) is sufficient for electrons.
+        #data is a 2D numpy array containing one frame. It's there only to provide the right number of rows and columns.
+        print('got ' + str(np.shape(electronlist)) + ' Photons')
+        cluster_frame = np.zeros_like(frame,dtype=int16)
+        clusters = []
+        for i in range(np.shape(electronlist)[0]):
+            iy = electronlist[i][1]
+            ix = electronlist[i][2]
+            cluster_frame[iy,ix] = electronlist[i][3]
+            clusters.append( SimpleCluster(ix,iy,electronlist[i][3],electronlist[i][0]) )
+        print('got ' + str(np.shape(electronlist)) + ' clusters')
+        return cluster_frame, clusters
 
 class SimpleSeedAnalysis(FrameAnalysis):
     """Find pixels with large signals, really stupidly complicated."""

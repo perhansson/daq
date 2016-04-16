@@ -54,7 +54,7 @@ class EpixShMemReader(EpixReader):
             # first word is frame length
             if data[0] == 0:
                 if EpixReader.debug: print('Read n ', n, ' found empty frame')
-                time.sleep(0.01)
+                time.sleep(0.001)
             
             elif data[0] > 0:
                 if EpixReader.debug: print('Read n ', n, ' found ', data[0], ' bytes with type ', data[1])
@@ -67,12 +67,12 @@ class EpixShMemReader(EpixReader):
                         # update timer sum for a frame
                         t0_nframes += dt
                         if n_frames % 10 == 0:
-                            print('Read  {0} frames with {1} frame/sec'.format(n_frames, t0_nframes/10. ))
-                            print('current thread ' + str(QThread.currentThread()))
+                            print('Read  {0} frames with {1} frame/sec ({2})'.format(n_frames, t0_nframes/10., str(QThread.currentThread())))
                             t0_nframes = 0.
 
                         # send the data
-                        self.send_data( data[2] )
+                        #self.send_data( data[2] )
+                        self.emit_data( data[2] )
                 else:
                     print('Read n ', n, ' got type  ', data[1])
             

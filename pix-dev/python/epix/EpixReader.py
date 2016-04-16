@@ -5,7 +5,7 @@ import numpy as np
 from frame import EpixFrame, EpixIntegratedFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from pix_utils import toint, dropbadframes, FrameAnalysisTypes
+from pix_utils import FrameTimer, get_timer_data
 
 class EpixReader(QThread):
     """ Base class for reading epix data"""
@@ -15,9 +15,6 @@ class EpixReader(QThread):
         
         # state
         self.state = 'Stopped'
-
-        # type of analysis
-        self.frame_analysis = FrameAnalysisTypes.get('none')
 
         # mean of dark frames
         self.dark_frame_mean = None
@@ -40,6 +37,8 @@ class EpixReader(QThread):
         # number of frames sent
         self.n_sent = 0
         self.n_sent_busy = 0
+        self.n_emit = 0
+        self.n_emit_busy = 0        
 
         # number of frames not sent due to busy
         self.n_busy = 0
@@ -51,28 +50,20 @@ class EpixReader(QThread):
 
         # form busy
         self.form_busy = False
+
+        # timers
+        self.timers = []
     
 
     def set_form_busy(self,a):
-        """ Set busy word from form."""
-        if EpixReader.debug: 
-            print('[EpixReader]: set form busy to  ' + str(a) )
+        """ Set busy word."""
+        if EpixReader.debug: print('[EpixReader]: set busy to  ' + str(a) )
         self.form_busy = a
-    
-    def select_analysis(self,a):
-        """ Set analysis to be applied to frames."""
-        if EpixReader.debug: print('[EpixReader]: set frame analysis to ' + a.name )
-        self.frame_analysis = a
 
     def set_integration(self,count):
         """ Set number of frames to integrate."""
         if EpixReader.debug: print('[EpixReader]: set integration to ', count, ' frames')
         self.integrate = count
-
-    def select_asic(self, asic):
-        """Select which asic to read data from."""
-        if EpixReader.debug: print('[EpixReader]: select asic ', asic)
-        self.selected_asic = asic
 
     def set_state(self, state):
         if EpixReader.debug: print('[EpixReader]: set state \"', state,'\" from \"', self.state,'\"')
@@ -102,13 +93,32 @@ class EpixReader(QThread):
         print('[EpixReader]: select dark file ' + t)
         self.add_dark_file(t)
 
+    def emit_data(self, data):
+        print('[EpixReader]: emit data (' + str(QThread.currentThread()) + ')')
+        t0 = FrameTimer('emit')
+        t0.start()
+        if self.form_busy:
+            self.n_emit_busy += 1
+        else:
+            self.emit(SIGNAL('data_frame'),data)
+            self.n_emit += 1
+        t0.stop()
+        self.timers.append(t0)
+        print('[EpixReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
+        if self.n_emit % 10 == 0:
+            tot, n = get_timer_data(self.timers)
+            print('[EpixReader]: n_emit {0} n_emit_busy {1} i.e. {2}% busy in {3} sec/frame ({4}) '.format( self.n_emit, self.n_emit_busy, 100*float(self.n_emit_busy)/float(self.n_emit_busy + self.n_emit), float(tot)/float(n), str(QThread.currentThread())))
+            del self.timers[:]
+            self.n_emit = 0
+            self.n_emit_busy = 0
+    
     
     def send_data(self, data):
         """Send data to other objects using emit """
 
-        t0=time.clock();
+        t0=time.clock()
 
-        t1=time.clock();
+        t1=time.clock()
         frame = EpixIntegratedFrame( data, self.selected_asic )
 
         if EpixReader.debug: print('[EpixReader]: Built EpixFrame in ' +  str( time.clock() - t1) + ' s')
@@ -286,10 +296,14 @@ class EpixReader(QThread):
             print dark_file.files
             print dark_file['dark_frame_mean']
             self.dark_frame_mean = dark_file['dark_frame_mean']
+            self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
             #dark_file.close()
             # enable by default
             self.do_dark_frame_subtraction = True
         print 'Done loading dark frame'
+
+
+    
 
     def set_frame_sleep(self, val_msec):
         self.frame_sleep = val_msec
