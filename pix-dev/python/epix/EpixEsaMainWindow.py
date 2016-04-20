@@ -13,7 +13,7 @@ import epix_style
 from pix_utils import FrameAnalysisTypes
 from daq_worker_gui import *
 from plot_widgets import *
-
+from pix_threading import MyQThread
 
 
 class EpixEsaMainWindow(QMainWindow):
@@ -38,6 +38,8 @@ class EpixEsaMainWindow(QMainWindow):
 
         # timer
         self.__t0_sum = 0.
+        self.t0_frame = None
+        self.t0_frame_diff = -1.0
 
         self.integration_count = 1
         
@@ -63,15 +65,19 @@ class EpixEsaMainWindow(QMainWindow):
         self.create_main_frame()
         self.create_status_bar()
 
+        # keep references to the open plot widgets
         self.plot_widgets = []
-
-        self.textbox.setText('Initializing...')
 
         # image to be displayed
         self.img = None
         #self.on_draw()
 
+        # data processor
         self.frame_processor = None
+
+        # text box to display messages
+        self.textbox.setText('Initialized...')
+
 
 
 
@@ -88,34 +94,37 @@ class EpixEsaMainWindow(QMainWindow):
     
     
 
-    def newDataFrame(self,data_frame):
+    def newDataFrame(self,frame_id, data_frame):
         """ Receives new data frame"""
 
-        #if self.debug: print('[EpixEsaMainWindow]: newDataFrame')
+        t_now = int(round(time.time() * 1000))
+        if self.t0_frame == None:
+            self.t0_frame = t_now
+            self.t0_frame_diff = -1
+        else:
+            self.t0_frame_diff = t_now - self.t0_frame
+            self.t0_frame = t_now
 
-        # store the data
-        #self.last_frame = data_frame
+       # print('[EpixEsaMainWindow]: newDataFrame frame_id ' + str(frame_id) + ' t_now ' + str(t_now) + ' (' + str(self.t0_frame_diff) + ')')
+
+        #QApplication.processEvents()
 
         # update dark file if needed
         self.update_dark_file()
 
         # update the asic being plotted - not sure I need this anymore
         self.__asic_plotted = self.select_asic
-
-        self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
+        
+        if self.t0_frame_diff == 0:
+            rate = -1
+        else :
+            rate = 1000.0/float(self.t0_frame_diff)
+        self.textbox.setText('Processed frame {0} ( {1:.1f}msec/{2:.1f}Hz,  processed {3})'.format(frame_id,self.t0_frame_diff, rate, self.nframes ))
 
         self.nframes += 1
 
-        # don't actually draw anything here
-        # if a period is set, use that to determine when to update plots
-        #if self.period:
-        #    if time.time() - self.lastTime > self.period:
-        #        self.lastTime = time.time()
-        #        self.on_draw()
-        # otherwise try to update plots whenever there is new data
-        #else:
-        #    #if self.debug: print('[EpixEsaMainWindow]: draw it')
-        #    self.on_draw()
+        QApplication.processEvents()
+
 
     def newState(self,state_str):
         self.run_state = state_str
@@ -252,14 +261,6 @@ class EpixEsaMainWindow(QMainWindow):
     
         if self.debug: print('[EpixEsaMainWindow]: Completed draw in {0} s'.format(time.clock() - t0))
         
-        #busy_sleep = 0
-        #t0 = time.clock()
-        #print('[EpixEsaMainWindow]: [EpixEsaMainWindow]: sleep from t0={0}'.format(t0))
-        #i = 0
-        #while i < busy_sleep:
-        #    time.sleep(1)
-        #    i += 1        
-        #print('[EpixEsaMainWindow]: [EpixEsaMainWindow]: busy slept for {0} sec'.format(i))
         self.send_busy(False)
     
 
@@ -416,60 +417,65 @@ class EpixEsaMainWindow(QMainWindow):
 
     def connect_function(self, sig, fnc):
         self.connect(self, sig, fnc)
-
+    
     def on_cluster_signal_hist(self):
         w = HistogramWidget('cluster signal hist',None, True, self.integration_count)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('new_clusters'), w.worker.new_data )
-        #self.connect_function(SIGNAL('new_clusters'), w.worker.new_data)
-        #self.connect(self, SIGNAL('new_clusters'), w.thread.new_data)
-        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_signal_hist_quit)
-        #w.connect(w, SIGNAL('finished()'), self.on_cluster_signal_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
-        self.plot_widgets.append( w )
-
+        self.plot_widgets.append( (w, [SIGNAL('new_clusters')]) )
+    
     def on_cluster_count_hist(self):
         w = CountHistogramWidget('cluster count hist',None, True, self.integration_count)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('cluster_count'), w.worker.new_data )
-        #self.connect_function(SIGNAL('cluster_count'), w.worker.new_data)
-        #self.connect(self, SIGNAL('cluster_count'), w.thread.new_data)
-        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_count_hist_quit)
-        #w.connect(w, SIGNAL('finished()'), self.on_cluster_count_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
-        self.plot_widgets.append( w )
-
+        self.plot_widgets.append( (w, [SIGNAL('cluster_count')]) )
+    
     def on_cluster_strip_count_hist(self):
         w = StripWidget('cluster strip_count hist',None, True, self.integration_count,50)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('cluster_count'), w.worker.new_data )
-        #self.connect_function(SIGNAL('cluster_count'), w.worker.new_data)
-        #w.connect(w, SIGNAL('on_quit'), self.on_cluster_strip_count_hist_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
-        self.plot_widgets.append( w )
-
+        self.plot_widgets.append( (w, [SIGNAL('cluster_count')]) )
+    
 
     def on_frame(self):
         w = ImageWidget('frame',None, True, self.integration_count)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('new_data'), w.worker.new_data )
-        #self.connect_function(SIGNAL('new_data'), w.worker.new_data )
-        #self.connect(self, SIGNAL('new_data'), w.thread.new_data)
-        #w.connect(w, SIGNAL('on_quit'), self.on_frame_quit)
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
-        self.plot_widgets.append( w )
-
-#    def on_plot_widget_quit(self, name):
-#        print('[EpixEsaMainWindow]: disconnect widget ' + name )
-#        for w in self.plot_widgets:
-#            print('[EpixEsaMainWindow]: check {0}'.format(w.name))
-#            if w.name == name:
-#                self.disconnect(self, SIGNAL('new_clusters'), w.thread.new_data)
-#                print('[EpixEsaMainWindow]: disconnected {0}'.format(w.name))
+        self.plot_widgets.append( (w, [SIGNAL('new_data')]) )
+        
+    def on_plot_widget_quit(self, name):
+        print('[EpixEsaMainWindow]: disconnect widget ' + name )
+        for w in self.plot_widgets:
+            print('[EpixEsaMainWindow]: check {0}'.format(w[0].name))
+            if w[0].name == name:
+                for signal in w[1]:
+                    self.disconnect(self, signal, w.thread.new_data)
+                    print('[EpixEsaMainWindow]: disconnected {0} from signal {1}'.format(w.name, str(signal)))
     
     def on_cluster_signal_hist_quit(self):
         print('[EpixEsaMainWindow]: disconnect cluster signal_hist')
-        for w in self.plot_widgets:
+        # loop through all threads
+        for thr in self.plot_threads:
+            # find the widget worker
+            w = thr[1]            
             print('[EpixEsaMainWindow]: check {0}'.format(w.name))
-            if w.name == 'cluster signal hist':
-                self.frame_processor.worker.disconnect(self, SIGNAL('new_clusters'), w.thread.new_data)
-                print('[EpixEsaMainWindow]: disconnected {0}'.format(w.name))
+            # check if it's the one we want to quit
+            if w.name == 'cluster signal hist':                
+                # loop through all signals connected to frame processor and disconnect them
+                signals = thr[2]
+                for sig in signals:
+                    self.frame_processor.worker.disconnect(self, sig, w.thread.new_data)
+                    print('[EpixEsaMainWindow]: disconnected {0} signal \"{1}\"'.format(w.name, str(sig)))
+    
+
+#    def on_cluster_signal_hist_quit(self):
+#        print('[EpixEsaMainWindow]: disconnect cluster signal_hist')
+#        for w in self.plot_widgets:
+#            print('[EpixEsaMainWindow]: check {0}'.format(w.name))
+#            if w.name == 'cluster signal hist':
+#                self.frame_processor.worker.disconnect(self, SIGNAL('new_clusters'), w.thread.new_data)
+#                print('[EpixEsaMainWindow]: disconnected {0}'.format(w.name))
+
     
     def on_cluster_count_hist_quit(self):
         print('[EpixEsaMainWindow]: disconnect cluster count_hist')
@@ -497,6 +503,7 @@ class EpixEsaMainWindow(QMainWindow):
                 print('[EpixEsaMainWindow]: disconnected {0}'.format(w.name))
     
 
+
     def closeEvent(self, event):
         can_exit = True
         self.on_quit()
@@ -506,9 +513,12 @@ class EpixEsaMainWindow(QMainWindow):
             event.ignore()
 
     def on_quit(self):
+        print('[EpixEsaMainWindow]: on_quit')
         self.daq_worker_widget.close()
+        print('[EpixEsaMainWindow]: quit ' + str(len(self.plot_widgets)) + ' widgets')
         for w in self.plot_widgets:
-            w.close()
+            #self.on_plot_widget_quit(w)
+            w[0].close()
         self.close()
     
     def on_daq_control(self):

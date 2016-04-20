@@ -41,20 +41,11 @@ class PlotWorker(QObject):
         if printThreadInfo:
             print('[PlotWorker]: \"' + self.name + '\" ' + msg + ' in thread ' + str(QThread.currentThread()))
 
-    def new_data(self,data):
+    def new_data(self,frame_id, data):
         """Abstract function"""
         print('abstract new_data function called!')
-    
-    #def run(self):
-    #    self.print_thread('start thread \"' + self.name + '\"')
-    #    i = 0
-    #    while not self.exiting:
-    #        time.sleep(0.01)
-    #        if (i*0.01) % 10 == 0:
-    #            self.print_thread('alive {0}'.format(i))
-    #        i += 1
-    
 
+        
 
 class PlotWidget(QWidget):
 
@@ -73,6 +64,7 @@ class PlotWidget(QWidget):
         self.y_label = ''
         self.title = self.name 
         self.txt = None
+        self.txt_integration = None
         self.thread = MyQThread()
         self.thread.start()
         self.worker = None
@@ -102,14 +94,9 @@ class PlotWidget(QWidget):
                 #event.ignore()
     
 
-    #def on_quit(self):
-    #    self.emit(SIGNAL('on_quit'), self.name)
-    #    if self.thread != None:
-    #        print('[PlotWidget] on_quit, quit the worker thread.')
-    #        self.thread.exiting = True
-    #        while not self.thread.exiting:
-    #            print('thread still going')
-    #    self.close()
+    def set_integration_text(self):
+        self.txt_integration = self.ax.text(0.1,0.9,'{0} frames integrated'.format(self.worker.n_integrate),transform=self.ax.transAxes)
+    
 
     def print_thread(self,msg):
         global printThreadInfo
@@ -126,9 +113,10 @@ class PlotWidget(QWidget):
         self.title = s
 
     def set_integration(self,n):
-        print('[PlotWidget]: set_integation to ' + str(n))
+        print('[PlotWidget]: set_integration to ' + str(n))
         if self.worker != None:
             self.worker.set_integration( n )
+        self.set_integration_text()
     
     def set_geometry(self):
         self.setGeometry(10,10,500,500)
@@ -187,8 +175,6 @@ class PlotWidget(QWidget):
 
         self.setLayout( vbox )
 
-    
-
 
 
 
@@ -201,7 +187,7 @@ class HistogramWorker(PlotWorker):
         self.bins =  np.arange(0,6000,100)
         self.y = np.zeros_like(self.bins)
 
-    def new_data(self,data):
+    def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('HistogramWorker: new_data plot ' + str(len(data)) + ' cluster signals')
@@ -217,7 +203,7 @@ class HistogramWorker(PlotWorker):
         #x = [ (cl.signal) for cl in data ]
         self.n += 1
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL('data'), self.bins,self.y)
+            self.emit(SIGNAL('data'), frame_id, self.bins,self.y)
             self.n = 0
             self.y = np.zeros_like(self.bins)
         
@@ -236,8 +222,8 @@ class HistogramWidget(PlotWidget):
         #self.thread = HistogramWorker(self.name, None, n_integrate)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
-    
-    def on_draw(self, x, y):
+
+    def on_draw(self, frame_id, x, y):
 
         self.print_thread('on_draw')
 
@@ -251,7 +237,8 @@ class HistogramWidget(PlotWidget):
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')            
             #self.ax.set_xlabel('Cluster signal', fontsize=14, color='black')
             #self.ax.set_ylabel('Arbitrary units', fontsize=14, color='black')
-            self.txt = self.ax.text(0.2,0.8,'',transform=self.ax.transAxes)
+            self.txt = self.ax.text(0.1,0.8,'',transform=self.ax.transAxes)
+            #self.set_integration_text()
             print('got text ')
             print(self.txt)
 
@@ -260,13 +247,14 @@ class HistogramWidget(PlotWidget):
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
-        self.ax.set_title(self.title + ' ' + str(self.n) + ' frames')
-        #x_txt = 1000.0
-        #y_txt = np.max(y)
+        self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
+        self.set_integration_text()
         if len(x) > 0 and np.max(y) > 0:
             mean = np.average(x,axis=0,weights=y)
             self.txt.set_text('mean {0:.1f}'.format(mean))
+
         self.canvas.draw()
+
         self.n += 1
         
         # timer stuff
@@ -315,7 +303,7 @@ class CountHistogramWorker(PlotWorker):
         #self.x = np.zeros_like(self.bins)
         self.y = np.zeros_like(self.bins)
     
-    def new_data(self,data):
+    def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #x = [ data for i in range(data) ]
@@ -331,7 +319,7 @@ class CountHistogramWorker(PlotWorker):
         self.n += 1
 
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL('data'), self.bins, self.y)
+            self.emit(SIGNAL('data'), frame_id, self.bins, self.y)
             self.n = 0
             self.y = np.zeros_like(self.bins)
 
@@ -350,7 +338,7 @@ class CountHistogramWidget(PlotWidget):
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
     
-    def on_draw(self, x, y):
+    def on_draw(self, frame_id, x, y):
 
         self.print_thread('on_draw')
         #print('x')
@@ -367,12 +355,16 @@ class CountHistogramWidget(PlotWidget):
             #self.ax.set_xlabel('Cluster multiplicity', fontsize=14, color='black')
             #self.ax.set_ylabel('Arbitrary units', fontsize=14, color='black')
             self.txt = self.ax.text(0.2,0.8,'',transform=self.ax.transAxes)
+            #self.set_integration_text()
+
         else:
             self.img.set_data(x, y)
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
-        self.ax.set_title(self.title + ' ' + str(self.n) + ' frames')
+        self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
+        self.set_integration_text()
+
         if len(x) > 0 and np.max(y) > 0:
             mean = np.average(x,axis=0,weights=y)
             self.txt.set_text('mean {0:.1f}'.format(mean))
@@ -397,7 +389,7 @@ class ImageWorker(PlotWorker):
         PlotWorker.__init__(self, name, parent, n_integrate)
         self.d = None
 
-    def new_data(self,data):
+    def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('ImageWorker: process frame and send shape ' + str(np.shape(data)))
@@ -408,7 +400,7 @@ class ImageWorker(PlotWorker):
         self.n += 1
 
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL('data'), data)
+            self.emit(SIGNAL('data'), frame_id, self.d)
             self.n = 0
             self.d = None
 
@@ -426,7 +418,7 @@ class ImageWidget(PlotWidget):
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
 
-    def on_draw(self, data):
+    def on_draw(self, frame_id, data):
 
         self.print_thread('on_draw')
         
@@ -435,14 +427,14 @@ class ImageWidget(PlotWidget):
         if self.ax == None:
             self.d = np.zeros_like( data ) # , dtype=np.int16 )
             self.ax = self.fig.add_subplot(1,1,1)
-            self.img = self.ax.imshow(self.d, vmin=0,vmax=2000, interpolation='nearest', cmap='viridis')
+            self.img = self.ax.imshow(self.d, vmin=0,vmax=500, interpolation='nearest', cmap='viridis')
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
             self.fig.colorbar( self.img )
         else:
             self.d = data
             self.img.set_data( self.d )
-            self.ax.set_title(self.name + ' ' + str(self.n) + ' frames')
+            self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' (integrate ' + str(self.worker.n_integrate) + ', ' + str(self.n) + ' frames)')
             self.n += 1
             self.canvas.draw()
 
@@ -458,23 +450,25 @@ class ImageWidget(PlotWidget):
 
 class StripWorker(PlotWorker):
 
-    def __init__(self, name, parent = None, n_integrate = 1, max_hist=10):    
+    def __init__(self, name, parent = None, n_integrate = 1, max_hist=100):    
         PlotWorker.__init__(self, name, parent, n_integrate)
-        self.x = []
-        self.y = []
+        #self.x = []
+        self.y = [] 
+        for i in range(max_hist):
+            self.y.append(0)
         self.max_hist = max_hist
 
-    def new_data(self,data):
+    def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('StripWorker: process data ' + str(data))
         if len(self.y) >= self.max_hist:
             self.y.pop(0)
-            self.x.pop(0)
-        if self.x:
-            self.x.append( self.x[len(self.x)-1] + 1)
-        else:
-            self.x.append(0)            
+            #self.x.pop(0)
+        #if self.x:
+        #    self.x.append( self.x[len(self.x)-1] + 1)
+        #else:
+        #    self.x.append(0)            
         self.y.append(data)
         self.n += 1
 
@@ -482,7 +476,7 @@ class StripWorker(PlotWorker):
             #print('StripWorker: send x and y')
             #print (self.x)
             #print (self.y)
-            self.emit(SIGNAL('data'), self.x, self.y)
+            self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
             #self.d = None
         self.print_thread('new_data DONE')
@@ -490,16 +484,19 @@ class StripWorker(PlotWorker):
 
 class StripWidget(PlotWidget):
 
-    def __init__(self, name, parent=None, show=False, n_integrate = 1, max_hist=10):
+    def __init__(self, name, parent=None, show=False, n_integrate = 1, max_hist=100):
         PlotWidget.__init__(self,name, parent, show)
         self.d = None
-        self.worker = StripWorker(self.name, parent, n_integrate)
+        self.worker = StripWorker(self.name, parent, n_integrate, max_hist)
         self.worker.moveToThread( self.thread )
         #self.thread = StripWorker(self.name, None, n_integrate, max_hist)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
+        self.x = [] 
+        for i in range(max_hist):
+            self.x.append(i)
 
-    def on_draw(self, x, y):
+    def on_draw(self, frame_id, y):
         
         self.print_thread('on_draw')
 
@@ -507,17 +504,23 @@ class StripWidget(PlotWidget):
         if self.ax == None:
             self.ax = self.fig.add_subplot(111)
             self.ax.set_autoscale_on(True)
-            self.img, = self.ax.plot(x, y)
+
+            print('x = ' + str(len(self.x)) + '  y = ' + str(len(y))) 
+            self.img, = self.ax.plot(self.x, y)
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
             #self.ax.set_xlabel('Time', fontsize=14, color='black')
             #self.ax.set_ylabel('Strip variable value', fontsize=14, color='black')
+            #self.set_integration_text()
+
         else:
-            self.img.set_data(x, y)
+            #self.img.set_data(x, y)
+            self.img.set_ydata(y)
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
-        self.ax.set_title(self.title + ' ' + str(self.n) + ' frames')
+        self.ax.set_title(self.title + ' id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
+        self.set_integration_text()
         self.canvas.draw()
         self.n += 1
 

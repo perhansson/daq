@@ -31,7 +31,8 @@ class EpixFrame(object):
 
         # set the data if available
         if data != None:
-            self.set_data(data,asic)        
+            self.set_data_fast(data)        
+            #self.set_data(data,asic)        
 
         # clusters
         self.clusters = []
@@ -124,10 +125,10 @@ class EpixFrame(object):
             
                 # set the data finally
                 # bits[31:16]
-                self.super_rows[idx][ix] = ( (val >> 16) & 0xFFFF  )
+                self.super_rows[idx][ix] = ( val & 0xFFFF  )
                 ix += 1
                 # bits[15:0] 
-                self.super_rows[idx][ix] = ( val & 0xFFFF  )
+                self.super_rows[idx][ix] = ( (val >> 16) & 0xFFFF  )
                 ix += 1
                 
                 iword += 1
@@ -155,18 +156,20 @@ class EpixFrame(object):
         frame_data = np.asarray(data[offset_start:((nx/2)*ny+offset_start)],dtype=np.uint32)
 
         # read out the packed pixel adc values
-        frame_data_even = (frame_data >> 16) & 0xFFFF 
-        frame_data_odd  = frame_data & 0xFFFF 
+        frame_data_odd = (frame_data >> 16) & 0xFFFF 
+        frame_data_even  = frame_data & 0xFFFF 
+        #frame_data_even = (frame_data >> 16) & 0xFFFF 
+        #frame_data_odd  = frame_data & 0xFFFF 
 
         # new int16 array to hold final result
         frame_data_new = np.empty(ny*nx, dtype=np.int16)
 
-        print('frame_data ' + str(np.shape(frame_data)))
-        print('frame_data_even ' + str(np.shape(frame_data_even)))
-        print('frame_data_odd ' + str(np.shape(frame_data_odd)))
-        print('frame_data_new ' + str(np.shape(frame_data_new)))
-        print('frame_data_new[::2] ' + str(np.shape(frame_data_new[::2])))
-        print('frame_data_new[1::2] ' + str(np.shape(frame_data_new[1::2])))
+        #print('frame_data ' + str(np.shape(frame_data)))
+        #print('frame_data_even ' + str(np.shape(frame_data_even)))
+        #print('frame_data_odd ' + str(np.shape(frame_data_odd)))
+        #print('frame_data_new ' + str(np.shape(frame_data_new)))
+        #print('frame_data_new[::2] ' + str(np.shape(frame_data_new[::2])))
+        #print('frame_data_new[1::2] ' + str(np.shape(frame_data_new[1::2])))
 
         # set even and odd columns
         frame_data_new[::2] = frame_data_even.astype(np.int16)
@@ -179,7 +182,7 @@ class EpixFrame(object):
         self.super_rows = out
 
         t0.stop()
-        print('[EpixFrame]: ' + t0.toString())
+        #print('[EpixFrame]: ' + t0.toString())
     
 
     def __set_raw_super_row(self,idx,data):

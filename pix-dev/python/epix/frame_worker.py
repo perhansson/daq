@@ -24,17 +24,20 @@ class FrameWorker(QObject):
         super(FrameWorker, self).__init__()
         self.name = name
         self.drop_bad_frames = False
+        self.drop_bad_frames_2 = False
         self.do_dark_subtraction = True
         self.n_sent = 0
         self.n_busy = 0
         self.n_process = 0
-        self.__t0_sum = 0
+        self.__t0_ana_sum = 0
+        self.__n_ana_sum = 0
         self.frame = EpixFrame()
         self.dark_frame_mean = None
         self.selected_asic = -1
         self.process_timers = []
         self.form_busy = False
         self.frame_analysis = FrameAnalysisTypes.get('none')
+        self.frame_id = -1
 
     def print_debug(self,msg,force=False):
         """Print decorated debug message."""
@@ -66,10 +69,12 @@ class FrameWorker(QObject):
         self.frame_analysis = a
     
 
-    def process(self,data):
+    def process(self,frame_id, data):
         """Process a frame."""
 
-        self.print_thread('process',True)
+        drop_frame = False
+
+        self.print_thread('process', False)
 
         self.emit(SIGNAL('busy'),True)
 
@@ -79,14 +84,15 @@ class FrameWorker(QObject):
         self.n_process += 1
 
         # build frame
-        t1 = FrameTimer('epixFrameFill')
+        t1 = FrameTimer('epixFrameFill frame_id ' + str(frame_id))
         t1.start()
         self.frame.reset()
         #self.frame.set_data( data, self.selected_asic )
         self.frame.set_data_fast( data )
+        self.frame_id = frame_id
         t1.stop()
 
-        self.print_debug(t1.toString(), force=True)
+        self.print_debug(t1.toString(), force=False)
                 
         # add a dimension to fit the existing function
         if self.drop_bad_frames:
@@ -102,19 +108,34 @@ class FrameWorker(QObject):
 
             self.print_debug('Drop time total is ' + str( time.clock() - t1) + ' s')
 
+        if self.drop_bad_frames_2:
+            s = np.sum(np.abs(np.diff(np.median(self.frame.super_rows, axis=0))))
+            print('s = ' + str(s))
+            if s > 10000:
+                drop_frame = True
+
         if self.do_dark_subtraction:
 
             t_dark = FrameTimer('analysis')
             t_dark.start()
-            self.print_debug('subtract dark frame')
+            #self.print_debug('subtract dark frame', True)
             if self.dark_frame_mean == None:
-                self.print_debug('no dark frame is available!')
+                self.print_debug('no dark frame is available!', True)
             else:
                 # subtract pixel by pixel
+                #np.savez('dark_worker_frame_' + str(frame_id) + '.npz',dmean=self.dark_frame_mean)
+                #self.print_debug('dark ' + str(toint(self.dark_frame_mean)) , True)
+                #self.print_debug('before ' + str(self.frame.super_rows) , True)
+                #np.savez('loght_worker_frame_' + str(frame_id) + '.npz',frame=self.frame.super_rows)
+                print('dark:')
+                print(self.dark_frame_mean)
                 self.frame.super_rows -= toint( self.dark_frame_mean )
-                self.print_debug('subtraction done')
+                #self.print_debug('subtraction done', True)
+                #self.print_debug('after ' + str(self.frame.super_rows) , True)
             t_dark.stop()
             self.print_debug(t_dark.toString())
+
+        #self.frame.super_rows -= toint(self.dark_frame_mean)
         
         # do analysis
         # this should ne pass by ref so even if no analysis is made should be fast?
@@ -122,14 +143,19 @@ class FrameWorker(QObject):
         t_ana.start()
         self.frame.super_rows, self.frame.clusters = self.frame_analysis.process(self.frame.super_rows)
         t_ana.stop()
+        self.__t0_ana_sum += t_ana.diff()
+        self.__n_ana_sum += len(self.frame.clusters)
 
-        self.print_debug(t_ana.toString(), force=True)
+        self.print_debug(t_ana.toString(), force=False)
 
         if self.form_busy:
-            self.print_debug('form is busy.',force=True)
+            self.print_debug('form is busy.',force=False)
             self.n_busy += 1
+        elif drop_frame:
+            self.print_debug('dropped frame_2',force=True)
+            self.n_busy += 1            
         else:
-            self.print_debug('sending frame', force=True)
+            self.print_debug('sending frame', force=False)
             #self.emit(SIGNAL("newDataFrame"),self.frame)
             self.emit_data()
             self.n_sent += 1
@@ -137,10 +163,12 @@ class FrameWorker(QObject):
 
 
         # print timing if applicable
-        if self.n_sent % 10 == 0:
+        if self.n_sent % 10 == 0 and self.n_sent > 0:
             tot, n = get_timer_data(self.process_timers)
-            self.print_debug('n_process {0} n_sent {1} n_busy {2} i.e. {3}% at {4} sec/frame. ({5})'.format( self.n_process, self.n_sent, self.n_busy, float(self.n_busy)/float(self.n_sent+self.n_busy), float(tot)/n, str(QThread.currentThread())))
+            self.print_debug('n_process {0} n_sent {1} n_busy {2} i.e. {3}% at {4} sec/frame.  w/ ana={5}sec/frame ~{6}cl/frame ({7})'.format( self.n_process, self.n_sent, self.n_busy, float(self.n_busy)/float(self.n_sent+self.n_busy), float(tot)/n, float(self.__t0_ana_sum)/10.0, float(self.__n_ana_sum)/10.0, str(QThread.currentThread())), force=True)
             del self.process_timers[:]
+            self.__t0_ana_sum = 0
+            self.__n_ana_sum = 0
             self.n_busy = 0
             self.n_sent = 0
     
@@ -152,7 +180,7 @@ class FrameWorker(QObject):
         self.process_timers.append(t_process)
         self.print_debug(t_process.toString())
 
-        self.print_thread('process DONE',True)
+        self.print_thread('process DONE',False)
 
 
 
@@ -171,29 +199,32 @@ class FrameWorker(QObject):
             
             # send data 
 
-            print (' get_data from frame')
+            #QApplication.processEvents()
+
+            #print (' get_data from frame')
 
             data = self.frame.get_data(self.selected_asic)
 
-            print (' emit data')
-            print (np.shape(data))
-            print (data)
+            print (' emit data frame id ' + str(self.frame_id))
+            #print (np.shape(data))
+            #print (data)
+            #np.savez( 'frame_' + str(self.frame_id) + '.npz', frame = data )
 
-            self.emit(SIGNAL('new_data'), data)
+            self.emit(SIGNAL('new_data'), self.frame_id, data)
 
-            print (' emit new_clusters')
+            #print (' emit new_clusters')
 
-            self.emit(SIGNAL('new_clusters'), self.frame.clusters)
+            self.emit(SIGNAL('new_clusters'), self.frame_id, self.frame.clusters)
 
-            print (' emit cluster_count')
+            #print (' emit cluster_count')
 
-            self.emit(SIGNAL('cluster_count'), len(self.frame.clusters))
+            self.emit(SIGNAL('cluster_count'), self.frame_id, len(self.frame.clusters))
 
-            print (' DONE emit')
+            #print (' DONE emit')
 
         t0.stop()
 
-        self.print_debug(t0.toString(),force=True)
+        self.print_debug(t0.toString(),force=False)
 
 
 

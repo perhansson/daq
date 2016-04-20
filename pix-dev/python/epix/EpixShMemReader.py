@@ -11,6 +11,10 @@ class EpixShMemReader(EpixReader):
     """Read epix data from shared memory"""    
     def __init__(self, parent=None):
         EpixReader.__init__(self, parent)
+
+        # timer list
+        self.sh_timers = []
+
         # start the thread
         self.start()
         
@@ -28,10 +32,6 @@ class EpixShMemReader(EpixReader):
         # number of frames
         n_frames = 0
 
-        # timers
-        t0_nframes = 0.
-        t0_last = 0
-
         while True:
 
             # wait until state is correct
@@ -39,46 +39,47 @@ class EpixShMemReader(EpixReader):
                 if EpixReader.debug: print('EpixShMemReader thread waiting')
                 self.sleep(1)
                 continue
- 
+
+            # timers
+            t0 = FrameTimer('shmem run')
+            t0.start()
+
             # determine read interval
             self.do_frame_sleep()
            
-            t0 = time.clock()
-            t0_last = t0
-
             # read from shared memory
             data = pythonDaq.daqSharedDataRead()
 
-            dt = time.clock() - t0
-            
             # first word is frame length
             if data[0] == 0:
                 if EpixReader.debug: print('Read n ', n, ' found empty frame')
-                time.sleep(0.001)
-            
+                time.sleep(0.001)            
             elif data[0] > 0:
                 if EpixReader.debug: print('Read n ', n, ' found ', data[0], ' bytes with type ', data[1])
                 if data[1] == 0:
                     if data[0] == EpixFrame.framesize:
 
-                        # found a frame of the right size
-                        n_frames += 1
-
-                        # update timer sum for a frame
-                        t0_nframes += dt
-                        if n_frames % 10 == 0:
-                            print('Read  {0} frames with {1} frame/sec ({2})'.format(n_frames, t0_nframes/10., str(QThread.currentThread())))
-                            t0_nframes = 0.
-
                         # send the data
                         #self.send_data( data[2] )
-                        self.emit_data( data[2] )
+                        self.emit_data( n_frames, data[2] )
+
+                        # found a frame of the right size
+                        n_frames += 1
+                        
+                        # timers
+                        t0.stop()
+                        self.sh_timers.append(t0)
+                        if n_frames % 10 == 0:
+                            tot, n = get_timer_data(self.sh_timers)
+                            print('[EpixShReader]: n_frames {0} with {1} sec/frame ({2}) '.format( n_frames, float(tot)/float(n), str(QThread.currentThread())))
+                            del self.sh_timers[:]
+                            
                 else:
                     print('Read n ', n, ' got type  ', data[1])
             
             else:
                 print('Read n ', n, ' got weird size ', data[0])
-
+            
             n += 1
 
         

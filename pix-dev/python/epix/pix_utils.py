@@ -134,7 +134,7 @@ class PixelThresholdAnalysis(FrameAnalysis):
     Apply a simple threshold to pixels.
     """
 
-    def __init__(self, name = 'pixel_thresh', threshold=500):
+    def __init__(self, name = 'pixel_thresh', threshold=1000):
         FrameAnalysis.__init__(self, name)
         self.threshold = threshold
     

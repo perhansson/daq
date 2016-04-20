@@ -21,6 +21,7 @@ class EpixFileReader(EpixReader):
 
         # number of reads from the file
         n = 0
+
         #number of frames read
         n_frames = 0
         
@@ -48,11 +49,11 @@ class EpixFileReader(EpixReader):
                     t0_last = t0
 
                     # read one word from file
-                    fs = np.fromfile(f, dtype=np.uint32, count=4)[0]
-
+                    fs = np.fromfile(f, dtype=np.uint32, count=1)[0]
+                    
                     # read the data
                     # read the whole frame, it's really fast
-                    ret = np.fromfile(f, dtype=np.uint32, count=(4*fs) )
+                    ret = np.fromfile(f, dtype=np.uint32, count=(1*fs) )
 
                     if EpixReader.debug: print('read data in ', str( time.clock() - t0) + ' s')
                     
@@ -60,11 +61,11 @@ class EpixFileReader(EpixReader):
                     #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
                     if fs == EpixFrame.framesize:
                         if EpixReader.debug: print (n, ' got frame with ', fs, ' words')
-                        n_frames += 1
-                        
+
                         # send the data
-                        #self.send_data( ret )
-                        self.emit_data( ret )
+                        self.emit_data( n_frames, ret )                        
+                        
+                        n_frames += 1                        
                     else:
                         print(n, ' got weird size from file fs ', fs , ' ret ', ret)
                     

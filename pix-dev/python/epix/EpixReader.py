@@ -35,15 +35,9 @@ class EpixReader(QThread):
         self.selected_asic = -1
 
         # number of frames sent
-        self.n_sent = 0
-        self.n_sent_busy = 0
         self.n_emit = 0
         self.n_emit_busy = 0        
-
-        # number of frames not sent due to busy
-        self.n_busy = 0
-
-        # number of frames sent
+        self.n = 0
 
         # time to build and send frame
         self.__t0_sum_send_data = 0.
@@ -93,15 +87,22 @@ class EpixReader(QThread):
         print('[EpixReader]: select dark file ' + t)
         self.add_dark_file(t)
 
-    def emit_data(self, data):
-        print('[EpixReader]: emit data (' + str(QThread.currentThread()) + ')')
-        t0 = FrameTimer('emit')
+    def emit_data(self, frame_id, data):
+        """Send out the data to connected slots."""
+
+        #print('[EpixReader]: emit data (' + str(QThread.currentThread()) + ')')
+        t0 = FrameTimer('emit ' + str(frame_id))
         t0.start()
+
+        # check busy
         if self.form_busy:
             self.n_emit_busy += 1
         else:
-            self.emit(SIGNAL('data_frame'),data)
+            # actually send the data
+            self.emit(SIGNAL('data_frame'),frame_id, data)
             self.n_emit += 1
+            
+        # timer stuff
         t0.stop()
         self.timers.append(t0)
         print('[EpixReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
@@ -111,86 +112,12 @@ class EpixReader(QThread):
             del self.timers[:]
             self.n_emit = 0
             self.n_emit_busy = 0
+        self.n += 1
     
-    
-    def send_data(self, data):
-        """Send data to other objects using emit """
-
-        t0=time.clock()
-
-        t1=time.clock()
-        frame = EpixIntegratedFrame( data, self.selected_asic )
-
-        if EpixReader.debug: print('[EpixReader]: Built EpixFrame in ' +  str( time.clock() - t1) + ' s')
-
-        
-        # add a dimension to fit the existing function
-        t1=time.clock()
-        tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
-        tmp[0] = frame.super_rows
-        tmp, dropped = dropbadframes(tmp)
-        if tmp.size == 0:
-            print '[ EpixReader ] : WARNING dropped frame'
-            return
-        else:
-            if EpixReader.debug: print ('not a bad frame')
-        
-        if EpixReader.debug: print('[EpixReader]: Drop time total is ' + str( time.clock() - t1) + ' s')
-
-        if self.do_dark_subtraction:
-            if EpixReader.debug: print('[EpixReader]: subtract dark frame')
-            #print('[EpixReader]: 1,727 raw ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
-            if self.dark_frame_mean == None:
-                print('[EpixReader]: no dark frame is available!')
-                #sys.exit(1)
-            else:
-                # subtract pixel by pixel
-                frame.super_rows -= toint( self.dark_frame_mean )
-                if EpixReader.debug: print('[EpixReader]: subtraction done')
-                #print('[EpixReader]: 1,727 after ', frame.super_rows[1][727], ' dark mean ', self.dark_frame_mean[1][727])
-        
-        # do analysis
-        frame.super_rows, frame.clusters = self.frame_analysis.process(frame.super_rows)
-
-        # it's the first frame
-        if self.frame == None:
-            if EpixReader.debug: print('[EpixReader]: first frame')
-            self.frame = frame
-        else:
-            if EpixReader.debug: print('[EpixReader]: add frame to ', self.frame.n, ' previous frames')
-            self.frame.add_frame( frame )
-
-        #check if we are ready to send data
-        if self.frame.n >= self.integrate:
-
-            if self.form_busy:
-                print('[EpixReader]: form is busy.')
-                self.n_busy += 1
-            else:
-                if EpixReader.debug: 
-                    print('[EpixReader]: sending frame after ', self.frame.n, ' integrations')
-                    print('[EpixReader]: data ', self.frame.super_rows)
-                self.emit(SIGNAL("newDataFrame"),self.frame)
-                # timers
-                self.n_sent += 1
-                self.n_sent_busy +=1
-                self.__t0_sum_send_data += time.clock() - t0
-                
-            # reset fames
-            self.frame = None
-            #self.frame.n = 0
-
-        # print timing
-        if self.n_sent % 10 == 0:
-            print('[EpixReader]: sent total of {0} frames with {1} sec/frame. busy {2} of {3} or {4}% busy in thread {5}'.format( self.n_sent, self.__t0_sum_send_data/10., self.n_busy, self.n_sent_busy+self.n_busy, 100*float(self.n_busy)/float(self.n_sent_busy+self.n_busy), str(QThread.currentThread())))
-            #print('[EpixReader]: send_data current thread ' + str(QThread.currentThread()))
-            self.__t0_sum_send_data = 0.
-            self.n_busy = 0
-            self.n_sent_busy = 0
-        
 
 
-    def add_dark_file(self, filename, maxFrames=10, alg='mean'):
+    #def add_dark_file(self, filename, maxFrames=10, alg='mean'):
+    def add_dark_file(self, filename, maxFrames=10, alg='median'):
         """ Process dark file """
         print('[EpixReader]: Adding dark file from', filename)
         dark_frame_sum = None
@@ -215,10 +142,10 @@ class EpixReader(QThread):
                 try:
                     while True:
                         # read one word from file
-                        fs = np.fromfile(f, dtype=np.uint32, count=4)[0]
+                        fs = np.fromfile(f, dtype=np.uint32, count=1)[0]
 
                         # read the data
-                        ret = np.fromfile(f, dtype=np.uint32, count=(4*fs) )
+                        ret = np.fromfile(f, dtype=np.uint32, count=(1*fs) )
 
                         #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
                         if fs == EpixFrame.framesize:
@@ -229,14 +156,23 @@ class EpixReader(QThread):
 
                             print (n, ' created EpixFrame')
 
-                            tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
-                            tmp[0] = frame.super_rows
-                            tmp, dropped = dropbadframes(tmp)
-                            if tmp.size == 0:
-                                print 'dropped frame'
-                                continue
-                            else:
-                                print 'not a bad frame'
+                            #drop_frame = False                            
+                            #s = np.sum(np.abs(np.diff(np.median(frame.super_rows, axis=0))))
+                            #if s > 10000:
+                            #    drop_frame = True
+                            #if drop_frame:
+                            #    print('DROP BAD FRAME')
+                            #    continue
+                            
+                            
+                            #tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
+                            #tmp[0] = frame.super_rows
+                            #tmp, dropped = dropbadframes(tmp)
+                            #if tmp.size == 0:
+                            #    print 'dropped frame'
+                            #    continue
+                            #else:
+                            #    print 'not a bad frame'
 
                             # create the dark sum frame
                             if dark_frame_sum == None:
@@ -277,12 +213,16 @@ class EpixReader(QThread):
                 print('[EpixReader]: Got ' + str(n_frames) + ', now calculate stats.') 
 
                 # calculate mean for each pixel
-                self.dark_frame_mean = dark_frame_sum / n_frames
+                self.dark_frame_mean = dark_frame_sum / float(n_frames)
                 # enable by default
                 self.do_dark_frame_subtraction = True
 
                 # calculate the median
                 self.dark_frame_median = np.median(dark_frames, axis=0)
+                print('save dark frame mean')
+                print( self.dark_frame_mean)
+                print('save dark frame median')
+                print( self.dark_frame_median)
                 # save to file
                 np.savez( dark_filename, dark_frame_mean = self.dark_frame_mean, dark_frame_median = self.dark_frame_median)
             
@@ -295,8 +235,18 @@ class EpixReader(QThread):
             print ('loaded dark file')
             print dark_file.files
             print dark_file['dark_frame_mean']
-            self.dark_frame_mean = dark_file['dark_frame_mean']
-            self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
+            print dark_file['dark_frame_median']
+            #self.dark_frame_median = dark_file['dark_frame_median']
+            if alg == 'mean':
+                self.dark_frame_mean = dark_file['dark_frame_mean']
+                self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
+            elif alg == 'median':
+                self.dark_frame_median = dark_file['dark_frame_median']
+                self.dark_frame_mean = dark_file['dark_frame_median']
+                self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
+            else:
+                print('this opt doesnt exist')
+                sys.exit(1)
             #dark_file.close()
             # enable by default
             self.do_dark_frame_subtraction = True
@@ -316,14 +266,8 @@ class EpixReader(QThread):
             while (n < self.frame_sleep):
                 time.sleep(0.001)
                 n += 1
-                #print('n ' + str(n) + ' / ' + str(n_target))
-                #if n > self.frame_sleep:
-                #    print('WHATA F')
-                #if n > 100:
-                #    print('WHATA F2')
-    
             #if n_frames % 10 == 0: print('[EpixShMemReader] sleeps for {0} sec before reading'.format(self.frame_sleep))
-    
+
 
         
         
