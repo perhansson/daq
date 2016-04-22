@@ -105,7 +105,7 @@ class EpixReader(QThread):
         # timer stuff
         t0.stop()
         self.timers.append(t0)
-        print('[EpixReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
+        #print('[EpixReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
         if self.n_emit % 10 == 0:
             tot, n = get_timer_data(self.timers)
             print('[EpixReader]: n_emit {0} n_emit_busy {1} i.e. {2}% busy in {3} sec/frame ({4}) '.format( self.n_emit, self.n_emit_busy, 100*float(self.n_emit_busy)/float(self.n_emit_busy + self.n_emit), float(tot)/float(n), str(QThread.currentThread())))
