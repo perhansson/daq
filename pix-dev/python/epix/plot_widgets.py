@@ -452,7 +452,6 @@ class StripWorker(PlotWorker):
 
     def __init__(self, name, parent = None, n_integrate = 1, max_hist=100):    
         PlotWorker.__init__(self, name, parent, n_integrate)
-        #self.x = []
         self.y = [] 
         for i in range(max_hist):
             self.y.append(0)
@@ -462,23 +461,14 @@ class StripWorker(PlotWorker):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('StripWorker: process data ' + str(data))
-        if len(self.y) >= self.max_hist:
-            self.y.pop(0)
-            #self.x.pop(0)
-        #if self.x:
-        #    self.x.append( self.x[len(self.x)-1] + 1)
-        #else:
-        #    self.x.append(0)            
+        self.y.pop(0)
         self.y.append(data)
         self.n += 1
+        self.n_values += 1
 
         if self.n >= self.n_integrate:
-            #print('StripWorker: send x and y')
-            #print (self.x)
-            #print (self.y)
             self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
-            #self.d = None
         self.print_thread('new_data DONE')
         
 
@@ -489,7 +479,6 @@ class StripWidget(PlotWidget):
         self.d = None
         self.worker = StripWorker(self.name, parent, n_integrate, max_hist)
         self.worker.moveToThread( self.thread )
-        #self.thread = StripWorker(self.name, None, n_integrate, max_hist)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
         self.x = [] 
@@ -509,9 +498,7 @@ class StripWidget(PlotWidget):
             self.img, = self.ax.plot(self.x, y)
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
-            #self.ax.set_xlabel('Time', fontsize=14, color='black')
-            #self.ax.set_ylabel('Strip variable value', fontsize=14, color='black')
-            #self.set_integration_text()
+            self.set_integration_text()
 
         else:
             #self.img.set_data(x, y)
@@ -520,7 +507,6 @@ class StripWidget(PlotWidget):
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
         self.ax.set_title(self.title + ' id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
-        self.set_integration_text()
         self.canvas.draw()
         self.n += 1
 
