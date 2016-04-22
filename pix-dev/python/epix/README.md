@@ -1,11 +1,9 @@
-
-
 Instructions on how to start and stop a run with the ePix camera for ESA test beam.
 
 
-1. Log in to host 172.27.100.29
+Step 1. Log in to host 172.27.100.29
 
-2. Start the DAQ control
+Step 2. Start the DAQ control
 
 Start a terminal
 $ cd /home/epix/run_software
@@ -14,7 +12,7 @@ $ source setup_env_esa.csh
 Start DAQ expert GUI (this step will be removed later)
 $ ./bin/epixEsaGui
 
-3. Start the ESA monitoring and control tool
+Step 3. Start the ESA monitoring and control tool
 
 Start a new terminal
 $ cd epix_gui
@@ -50,7 +48,7 @@ The only one to use right now is:
 "Simple threshold": applies a threshold on all pixels. Typically 100ADC counts but can be configured.
 
 
-4. Take a dark run with beam
+Step 4. Take a dark run with beam
 Click "DAQ Control GUI". A new GUI should pop up.
 
 Click "Select dark file" and/or specify a full path to a new dark file name that you want to save the data to. 
@@ -63,7 +61,7 @@ Take about 300 events.
 
 Click "Stop" to end the dark run.
 
-5. Take a normal run with beam
+Step 5. Take a normal run with beam
 On the "DAQ Control GUI" under the beamtrigger section: click "Configure"
 Wait for about 10s
 NOTE: Keep the DAQ expert GUI (from step 2) visible at this moment to see that the run is being configured and controlled properly. This will not be needed in the future.
