@@ -419,7 +419,7 @@ class EpixEsaMainWindow(QMainWindow):
         self.connect(self, sig, fnc)
     
     def on_cluster_signal_hist(self):
-        w = HistogramWidget('cluster signal hist',None, True, self.integration_count)
+        w = HistogramWidget('cluster signal hist', np.arange(0,6000,100), None, True, self.integration_count)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('new_clusters'), w.worker.new_data )
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( (w, [SIGNAL('new_clusters')]) )

@@ -127,8 +127,8 @@ class FrameWorker(QObject):
                 #self.print_debug('dark ' + str(toint(self.dark_frame_mean)) , True)
                 #self.print_debug('before ' + str(self.frame.super_rows) , True)
                 #np.savez('loght_worker_frame_' + str(frame_id) + '.npz',frame=self.frame.super_rows)
-                print('dark:')
-                print(self.dark_frame_mean)
+                #print('dark:')
+                #print(self.dark_frame_mean)
                 self.frame.super_rows -= toint( self.dark_frame_mean )
                 #self.print_debug('subtraction done', True)
                 #self.print_debug('after ' + str(self.frame.super_rows) , True)
@@ -205,7 +205,7 @@ class FrameWorker(QObject):
 
             data = self.frame.get_data(self.selected_asic)
 
-            print (' emit data frame id ' + str(self.frame_id))
+            #print (' emit data frame id ' + str(self.frame_id))
             #print (np.shape(data))
             #print (data)
             #np.savez( 'frame_' + str(self.frame_id) + '.npz', frame = data )

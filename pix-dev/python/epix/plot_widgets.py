@@ -182,15 +182,15 @@ class PlotWidget(QWidget):
 
 class HistogramWorker(PlotWorker):
 
-    def __init__(self, name, parent = None, n_integrate = 1):    
+    def __init__(self, name, bins, parent = None, n_integrate = 1):    
         PlotWorker.__init__(self, name, parent, n_integrate)
-        self.bins =  np.arange(0,6000,100)
-        self.y = np.zeros_like(self.bins)
+        self.bins =  bins
+        self.y = np.zeros_like(bins)
 
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
-        self.print_thread('new_data')
-        #print('HistogramWorker: new_data plot ' + str(len(data)) + ' cluster signals')
+        #self.print_thread('new_data')
+        print('HistogramWorker: new_data plot ' + str(len(data)) + ' cluster signals')
         # loop through clusters and fill histogram
         for cl in data:
             # find index closest to signal
@@ -200,11 +200,15 @@ class HistogramWorker(PlotWorker):
                 self.y[idx] += 1
             else:
                 self.y[len(self.bins)-1] += 1
+            #print('cl signal ' + str(cl.signal) + ' idx ' + str(idx))
         #x = [ (cl.signal) for cl in data ]
         self.n += 1
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL('data'), frame_id, self.bins,self.y)
+            print('self.y')
+            print(self.y)
+            self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
+            #self.y.fill(0)
             self.y = np.zeros_like(self.bins)
         
         self.print_thread('new_data done')
@@ -215,42 +219,40 @@ class HistogramWidget(PlotWidget):
 
     __datadir = '/home/epix/data'
     
-    def __init__(self, name, parent=None, show=False, n_integrate = 1):
+    def __init__(self, name, bins, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self,name, parent, show) 
-        self.worker = HistogramWorker(self.name, parent, n_integrate)
+        self.worker = HistogramWorker(self.name, bins, parent, n_integrate)
         self.worker.moveToThread( self.thread )
-        #self.thread = HistogramWorker(self.name, None, n_integrate)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
-        self.worker.print_thread('worker init')
+        self.x = bins
 
-    def on_draw(self, frame_id, x, y):
+    def on_draw(self, frame_id, y):
 
         self.print_thread('on_draw')
+        print('y')
+        print(y)
+        print('x')
+        print(self.x)
+        
 
         t0 = time.clock()
 
         if self.ax == None:
             self.ax = self.fig.add_subplot(111)
             self.ax.set_autoscale_on(True)
-            self.img, = self.ax.plot(x, y)
+            self.img, = self.ax.plot(self.x, y)
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')            
-            #self.ax.set_xlabel('Cluster signal', fontsize=14, color='black')
-            #self.ax.set_ylabel('Arbitrary units', fontsize=14, color='black')
             self.txt = self.ax.text(0.1,0.8,'',transform=self.ax.transAxes)
-            #self.set_integration_text()
-            print('got text ')
-            print(self.txt)
-
+            self.set_integration_text()
         else:
-            self.img.set_data(x,y)
+            self.img.set_ydata(y)
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
-            #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
-        self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
-        self.set_integration_text()
-        if len(x) > 0 and np.max(y) > 0:
-            mean = np.average(x,axis=0,weights=y)
+
+        self.ax.set_title(self.title + ' id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
+        if len(self.x) > 0 and np.max(y) > 0:
+            mean = np.average(self.x,axis=0,weights=y)
             self.txt.set_text('mean {0:.1f}'.format(mean))
 
         self.canvas.draw()
@@ -264,35 +266,6 @@ class HistogramWidget(PlotWidget):
             #if self.debug: 
             print('HistogramWidget on_draw {0} frames with {1} sec/histogram'.format(self.n, self.t0sum/10.))
             self.t0sum = 0.
-
-
-#    def on_draw(self, x):
-#
-#        t0 = time.clock()
-#
-#        self.x = x
-#        if self.debug: print('plot on_draw xlen ' + str(len(self.x)) + ' binslen ' + str(len(self.bins)) )  
-#        if len(self.x) > 0:
-#            if self.ax == None:
-#                self.ax = self.fig.add_subplot(111)
-#            else:
-#                self.ax.cla()
-#                self.ax.hist(self.x, bins=self.bins, facecolor='green', alpha=0.75)
-#                self.ax.set_title(str(self.n) + ' frames plotted')
-#                self.ax.set_xlabel('Cluster signal (ADC)', fontsize=14, color='black')
-#                self.ax.set_ylabel('Arbitrary units', fontsize=14, color='black')
-#            self.canvas.draw()
-#            self.n += 1
-#        
-#        # timer stuff
-#        dt = time.clock() - t0
-#        self.t0sum += dt
-#        if self.n % 10 == 0:
-#            #if self.debug: 
-#            print('HistogramWidget on_draw {0} frames with {1} sec/histogram'.format(self.n, self.t0sum/10.))
-#            self.t0sum = 0.
-#
-
 
 
 class CountHistogramWorker(PlotWorker):
@@ -453,6 +426,7 @@ class StripWorker(PlotWorker):
     def __init__(self, name, parent = None, n_integrate = 1, max_hist=100):    
         PlotWorker.__init__(self, name, parent, n_integrate)
         #self.x = []
+        self.n_values = 0
         self.y = [] 
         for i in range(max_hist):
             self.y.append(0)
@@ -462,23 +436,15 @@ class StripWorker(PlotWorker):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('StripWorker: process data ' + str(data))
-        if len(self.y) >= self.max_hist:
-            self.y.pop(0)
-            #self.x.pop(0)
-        #if self.x:
-        #    self.x.append( self.x[len(self.x)-1] + 1)
-        #else:
-        #    self.x.append(0)            
+        #if self.n_values > self.max_hist:
+        self.y.pop(0)
         self.y.append(data)
         self.n += 1
+        self.n_values += 1
 
         if self.n >= self.n_integrate:
-            #print('StripWorker: send x and y')
-            #print (self.x)
-            #print (self.y)
             self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
-            #self.d = None
         self.print_thread('new_data DONE')
         
 
@@ -504,23 +470,18 @@ class StripWidget(PlotWidget):
         if self.ax == None:
             self.ax = self.fig.add_subplot(111)
             self.ax.set_autoscale_on(True)
-
-            print('x = ' + str(len(self.x)) + '  y = ' + str(len(y))) 
+            #print('x = ' + str(len(self.x)) + '  y = ' + str(len(y))) 
             self.img, = self.ax.plot(self.x, y)
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
-            #self.ax.set_xlabel('Time', fontsize=14, color='black')
-            #self.ax.set_ylabel('Strip variable value', fontsize=14, color='black')
-            #self.set_integration_text()
+            self.set_integration_text()
 
         else:
-            #self.img.set_data(x, y)
             self.img.set_ydata(y)
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
         self.ax.set_title(self.title + ' id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
-        self.set_integration_text()
         self.canvas.draw()
         self.n += 1
 
