@@ -188,7 +188,7 @@ class HistogramWorker(PlotWorker):
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         #self.print_thread('new_data')
-        print('HistogramWorker: new_data plot ' + str(len(data)) + ' cluster signals')
+        #print('HistogramWorker: new_data plot ' + str(len(data)) + ' cluster signals')
         # loop through clusters and fill histogram
         for cl in data:
             # find index closest to signal
@@ -202,8 +202,8 @@ class HistogramWorker(PlotWorker):
         #x = [ (cl.signal) for cl in data ]
         self.n += 1
         if self.n >= self.n_integrate:
-            print('self.y')
-            print(self.y)
+            #print('self.y')
+            #print(self.y)
             self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
             #self.y.fill(0)
@@ -225,10 +225,10 @@ class HistogramWidget(PlotWidget):
     def on_draw(self, frame_id, y):
 
         self.print_thread('on_draw')
-        print('y')
-        print(y)
-        print('x')
-        print(self.x)
+        #print('y')
+        #print(y)
+        #print('x')
+        #print(self.x)
         
 
         t0 = time.clock()
@@ -266,10 +266,9 @@ class HistogramWidget(PlotWidget):
 
 class CountHistogramWorker(PlotWorker):
 
-    def __init__(self, name, parent = None, n_integrate = 1):    
+    def __init__(self, name, bins, parent = None, n_integrate = 1):    
         PlotWorker.__init__(self, name, parent, n_integrate)
-        self.bins = np.arange(0,500)
-        #self.x = np.zeros_like(self.bins)
+        self.bins = bins
         self.y = np.zeros_like(self.bins)
     
     def new_data(self, frame_id ,data):
@@ -283,8 +282,9 @@ class CountHistogramWorker(PlotWorker):
         self.n += 1
 
         if self.n >= self.n_integrate:
-            self.emit(SIGNAL('data'), frame_id, self.bins, self.y)
+            self.emit(SIGNAL('data'), frame_id, self.y)
             self.n = 0
+            #self.y.fill(0)
             self.y = np.zeros_like(self.bins)
 
         self.print_thread('new_data DONE')
@@ -292,14 +292,15 @@ class CountHistogramWorker(PlotWorker):
 
 class CountHistogramWidget(PlotWidget):
 
-    def __init__(self, name, parent=None, show=False, n_integrate = 1):
+    def __init__(self, name, bins, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self, name, parent, show)
-        self.worker = CountHistogramWorker(self.name, parent, n_integrate)
+        self.worker = CountHistogramWorker(self.name, bins, parent, n_integrate)
         self.worker.moveToThread( self.thread )
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
+        self.x = bins
     
-    def on_draw(self, frame_id, x, y):
+    def on_draw(self, frame_id, y):
 
         self.print_thread('on_draw')
         #print('x')
@@ -310,24 +311,23 @@ class CountHistogramWidget(PlotWidget):
         if self.ax == None:
             self.ax = self.fig.add_subplot(111)
             self.ax.set_autoscale_on(True)
-            self.img, = self.ax.plot(x, y)
+            self.img, = self.ax.plot(self.x, y)
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')            
             #self.ax.set_xlabel('Cluster multiplicity', fontsize=14, color='black')
             #self.ax.set_ylabel('Arbitrary units', fontsize=14, color='black')
             self.txt = self.ax.text(0.2,0.8,'',transform=self.ax.transAxes)
-            #self.set_integration_text()
+            self.set_integration_text()
 
         else:
-            self.img.set_data(x, y)
+            self.img.set_ydata(y)
             self.ax.relim()
             self.ax.autoscale_view(True, True, True)
             #self.ax.hist(self.x, bins=self.bins, facecolor='red', alpha=0.75)
         self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' ('+ str(self.n) + ' frames)')
-        self.set_integration_text()
 
-        if len(x) > 0 and np.max(y) > 0:
-            mean = np.average(x,axis=0,weights=y)
+        if np.max(y) > 0:
+            mean = np.average(self.x,axis=0,weights=y)
             self.txt.set_text('mean {0:.1f}'.format(mean))
         self.canvas.draw()
         self.n += 1
@@ -425,7 +425,6 @@ class StripWorker(PlotWorker):
         self.y.pop(0)
         self.y.append(data)
         self.n += 1
-        self.n_values += 1
 
         if self.n >= self.n_integrate:
             self.emit(SIGNAL('data'), frame_id, self.y)

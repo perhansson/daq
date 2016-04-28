@@ -346,7 +346,7 @@ class EpixEsaMainWindow(QMainWindow):
         self.plot_widgets.append( (w, [SIGNAL('new_clusters')]) )
     
     def on_cluster_count_hist(self):
-        w = CountHistogramWidget('cluster count hist',None, True, self.integration_count)
+        w = CountHistogramWidget('cluster count hist',np.arange(0, 500), None, True, self.integration_count)
         self.frame_processor.worker.connect( self.frame_processor.worker, SIGNAL('cluster_count'), w.worker.new_data )
         self.connect_function(SIGNAL('integrationCount'), w.set_integration)
         self.plot_widgets.append( (w, [SIGNAL('cluster_count')]) )

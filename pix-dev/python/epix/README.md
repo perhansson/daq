@@ -1,9 +1,10 @@
+
 Instructions on how to start and stop a run with the ePix camera for ESA test beam.
 
 
 Step 1. Log in to host 172.27.100.29
 
-Step 2. Start the DAQ control
+Step 2. Start the DAQ expert GUI
 
 Start a terminal
 $ cd /home/epix/run_software
@@ -12,7 +13,7 @@ $ source setup_env_esa.csh
 Start DAQ expert GUI (this step will be removed later)
 $ ./bin/epixEsaGui
 
-Step 3. Start the ESA monitoring and control tool
+Step 3. Start the ESA ePix monitoring and control tool
 
 Start a new terminal
 $ cd /home/epix/epix_gui
@@ -42,9 +43,8 @@ Click the individual plots.
 Select clustering:
 Use the drop down menu to select which clustering. 
 
-The only one to use right now is:
-"None": no clustering (the cluster plots will be empty but frame is OK)
-"Simple threshold": applies a threshold on all pixels. Typically 100ADC counts but can be configured.
+"None": no clustering (the cluster plots will be empty but frame image should work)
+"Simple threshold": applies a threshold on all pixels. Should be configurable in the future. 
 
 
 Step 4. Take a run with beam trigger
