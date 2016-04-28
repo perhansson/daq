@@ -49,8 +49,6 @@ class PlotWorker(QObject):
 
 class PlotWidget(QWidget):
 
-    __datadir = '/home/epix/data'
-    
     def __init__(self, name, parent=None, show=False, n_integrate=1):
         QWidget.__init__(self,parent)
         self.name = name
@@ -217,8 +215,6 @@ class HistogramWorker(PlotWorker):
 
 class HistogramWidget(PlotWidget):
 
-    __datadir = '/home/epix/data'
-    
     def __init__(self, name, bins, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self,name, parent, show) 
         self.worker = HistogramWorker(self.name, bins, parent, n_integrate)
@@ -279,11 +275,6 @@ class CountHistogramWorker(PlotWorker):
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
-        #x = [ data for i in range(data) ]
-        #print('[CountHistogramWorker] : histogram data ' + str(data))
-        #print(x)
-        # reset histogram
-        # fill "histogram" , check overflow
         if data < len(self.y):
             self.y[data] += 1
         else:
@@ -301,13 +292,10 @@ class CountHistogramWorker(PlotWorker):
 
 class CountHistogramWidget(PlotWidget):
 
-    __datadir = '/home/epix/data'
-    
     def __init__(self, name, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self, name, parent, show)
         self.worker = CountHistogramWorker(self.name, parent, n_integrate)
         self.worker.moveToThread( self.thread )
-        #self.thread = CountHistogramWorker(self.name, None, n_integrate)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
     
@@ -407,7 +395,7 @@ class ImageWidget(PlotWidget):
         else:
             self.d = data
             self.img.set_data( self.d )
-            self.ax.set_title(self.title + ' frame id ' + str(frame_id) + ' (integrate ' + str(self.worker.n_integrate) + ', ' + str(self.n) + ' frames)')
+            self.ax.set_title(self.title + ' id ' + str(frame_id) + ' (integrate ' + str(self.worker.n_integrate) + ', ' + str(self.n) + ' frames)')
             self.n += 1
             self.canvas.draw()
 
