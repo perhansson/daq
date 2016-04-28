@@ -6,7 +6,6 @@ import time
 import numpy as np
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from pix_threading import MyQThread
 from frame import EpixFrame
 from pix_threading import MyQThread
 from pix_utils import toint, dropbadframes, FrameAnalysisTypes, FrameTimer, get_timer_data
@@ -205,22 +204,11 @@ class FrameWorker(QObject):
 
             data = self.frame.get_data(self.selected_asic)
 
-            #print (' emit data frame id ' + str(self.frame_id))
-            #print (np.shape(data))
-            #print (data)
-            #np.savez( 'frame_' + str(self.frame_id) + '.npz', frame = data )
-
             self.emit(SIGNAL('new_data'), self.frame_id, data)
-
-            #print (' emit new_clusters')
 
             self.emit(SIGNAL('new_clusters'), self.frame_id, self.frame.clusters)
 
-            #print (' emit cluster_count')
-
             self.emit(SIGNAL('cluster_count'), self.frame_id, len(self.frame.clusters))
-
-            #print (' DONE emit')
 
         t0.stop()
 
@@ -231,6 +219,7 @@ class FrameWorker(QObject):
 
 
 class FrameWorkerController(QObject):
+    """Controller class that wraps the actual work into it's own thread."""
     def __init__(self, name):
         super(FrameWorkerController, self).__init__()
         self.thread = MyQThread()

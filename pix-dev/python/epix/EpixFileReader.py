@@ -69,8 +69,6 @@ class EpixFileReader(EpixReader):
                     else:
                         print(n, ' got weird size from file fs ', fs , ' ret ', ret)
                     
-                    #ans = raw_input('next frame?')
-                    #time.sleep(self.frame_sleep)
                     n += 1
             except IndexError:
                 print(' - read ', n, ' times and got ', n_frames,' frames from file')

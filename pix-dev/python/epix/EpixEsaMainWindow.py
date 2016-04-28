@@ -18,6 +18,8 @@ from pix_threading import MyQThread
 
 class EpixEsaMainWindow(QMainWindow):
 
+    __datadir = '/home/epix/data'
+
     def __init__(self, parent=None, debug=False):
         QMainWindow.__init__(self, parent)
         self.setWindowTitle('ePix ESA Live Display')
@@ -32,10 +34,6 @@ class EpixEsaMainWindow(QMainWindow):
         # -1 if all of them
         self.select_asic = -1
 
-        # keep track of which one being plotted
-        # work around if we need to know when updating stuff
-        self.__asic_plotted = -1
-
         # timer
         self.__t0_sum = 0.
         self.t0_frame = None
@@ -46,12 +44,8 @@ class EpixEsaMainWindow(QMainWindow):
         # hold latest data frame
         self.last_frame = None
 
-        # accumulated frames
-        self.acc_frame = None
-
         # counters
         self.nframes = 0
-        self.nframes_acc = 0
 
         # period to update plots in second, None if not used
         self.period = None
@@ -68,15 +62,11 @@ class EpixEsaMainWindow(QMainWindow):
         # keep references to the open plot widgets
         self.plot_widgets = []
 
-        # image to be displayed
-        self.img = None
-        #self.on_draw()
-
         # data processor
         self.frame_processor = None
 
         # text box to display messages
-        self.textbox.setText('Initialized...')
+        self.textbox.setText('Uninitialized...')
 
 
 
@@ -97,6 +87,7 @@ class EpixEsaMainWindow(QMainWindow):
     def newDataFrame(self,frame_id, data_frame):
         """ Receives new data frame"""
 
+        # timer
         t_now = int(round(time.time() * 1000))
         if self.t0_frame == None:
             self.t0_frame = t_now
@@ -109,12 +100,6 @@ class EpixEsaMainWindow(QMainWindow):
 
         #QApplication.processEvents()
 
-        # update dark file if needed
-        self.update_dark_file()
-
-        # update the asic being plotted - not sure I need this anymore
-        self.__asic_plotted = self.select_asic
-        
         if self.t0_frame_diff == 0:
             rate = -1
         else :
@@ -150,12 +135,6 @@ class EpixEsaMainWindow(QMainWindow):
         """ Start or stop the acquisition of data"""
         if self.debug: print('[EpixEsaMainWindow]: on acq')
         self.emit(SIGNAL("acqState"),1)
-
-    def on_reset_integration(self):
-        """ Reset the integration frame"""
-        if self.debug: print('[EpixEsaMainWindow]: on reset integration')
-        self.acc_frame = None
-        self.nframes_acc = 0
 
     def set_integration(self,n):
         """Update the integration count."""
@@ -208,61 +187,6 @@ class EpixEsaMainWindow(QMainWindow):
         self.emit(SIGNAL('selectDarkFile'), str(t))
 
     
-    def on_draw(self):
-        """ Redraws the figure
-        """
-
-        if self.debug: print ('[EpixEsaMainWindow]: on_draw ')
-
-        self.send_busy(True)
-        
-        t0 = time.clock()
-
-
-        # check that there is a data to be drawn
-        if self.last_frame != None:
-
-            # update dark file if needed
-            self.update_dark_file()
-            
-            # update the asic being plotted - not sure I need this anymore
-            self.__asic_plotted = self.select_asic
-            
-            self.textbox.setText('Figure updated with data from frame ' + str( self.nframes ))
-
-            # send data to other widgets
-
-            print ('[EpixEsaMainWindow]: get_data from frame')
-
-            data = self.last_frame.get_data(self.select_asic)
-
-            print ('[EpixEsaMainWindow]: emit data')
-
-            self.emit(SIGNAL('new_data'), data)
-
-            print ('[EpixEsaMainWindow]: emit new_clusters')
-
-            self.emit(SIGNAL('new_clusters'), self.last_frame.clusters)
-
-            print ('[EpixEsaMainWindow]: emit cluster_count')
-
-            self.emit(SIGNAL('cluster_count'), len(self.last_frame.clusters))
-
-            print ('[EpixEsaMainWindow]: DONE emit')
-                
-            # timer info
-            self.__t0_sum += time.clock() - t0
-            if self.nframes % 10 == 0:
-                print('[EpixEsaMainWindow]: emit {0} frames  {1} sec/frame'.format(self.nframes, self.__t0_sum/10.))
-                self.__t0_sum = 0.
-        
-        else:
-            self.textbox.setText('No data available, frames processed: ' + str( self.nframes ))
-    
-        if self.debug: print('[EpixEsaMainWindow]: Completed draw in {0} s'.format(time.clock() - t0))
-        
-        self.send_busy(False)
-    
 
 
     def create_menu(self):        
@@ -300,17 +224,6 @@ class EpixEsaMainWindow(QMainWindow):
         textbox_label = QLabel('Info:')
         self.textbox = QLineEdit()
         self.textbox.setMinimumWidth(100)
-        #self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
-
-        self.b_open_dark = QPushButton(self)
-        self.b_open_dark.setText('Select dark file')
-        self.b_open_dark.clicked.connect(self.daq_worker_widget.showDarkFileDialog)
-
-        textbox_dark_file_label = QLabel('Dark file:')
-        self.textbox_dark_file = QLineEdit()
-        #self.textbox_dark_file.setMaximumWidth(100)
-        #self.textbox_dark_file.setMinimumWidth(200)
-        #self.connect(self.textbox, SIGNAL('editingFinished ()'), self.on_draw)
 
         textbox_integration_label = QLabel('Integrate frames (#):')
         self.textbox_integration = QLineEdit()
@@ -338,19 +251,9 @@ class EpixEsaMainWindow(QMainWindow):
         self.acq_button = QPushButton("&Acquire Start/Stop")
         self.connect(self.acq_button, SIGNAL('clicked()'), self.on_acq)
 
-        self.reset_integration_button = QPushButton("&Reset Integration")
-        self.connect(self.reset_integration_button, SIGNAL('clicked()'), self.on_reset_integration)
-
         textbox_plot_options_label = QLabel('Plotting options:')
         self.grid_cb = QCheckBox("Show &Grid")
         self.grid_cb.setChecked(False)
-        #self.connect(self.grid_cb, SIGNAL('stateChanged(int)'), self.on_draw)
-        
-        # Layout with box sizers         
-        #hbox_plotting = QHBoxLayout()
-        #for w in [  textbox_plot_options_label, self.grid_cb ]:
-        #    hbox_plotting.addWidget(w)
-        #    hbox_plotting.setAlignment(w, Qt.AlignLeft) #Qt.AlignVCenter)
         
         vbox = QVBoxLayout()
         self.form_layout_info = QFormLayout()
@@ -360,10 +263,6 @@ class EpixEsaMainWindow(QMainWindow):
         #vbox.addWidget(self.canvas)
         #vbox.addWidget(self.mpl_toolbar)
 
-        hbox_dark = QHBoxLayout()
-        hbox_dark.addWidget(self.b_open_dark)
-        hbox_dark.addWidget(textbox_dark_file_label)
-        hbox_dark.addWidget(self.textbox_dark_file)
 
         self.quit_button = QPushButton("&Quit")
         self.quit_button.clicked.connect(self.on_quit)
@@ -375,10 +274,32 @@ class EpixEsaMainWindow(QMainWindow):
         hbox_cntrl.addWidget( self.daq_button )        
         vbox.addLayout( hbox_cntrl )
         vbox.addStretch(1)
+
+        hbox_dark = QHBoxLayout()
+        textbox_dark_file_label = QLabel('Dark file:')
+        self.textbox_dark_file = QLineEdit()
+        #self.textbox_dark_file.setMaximumWidth(100)
+        self.textbox_dark_file.setMinimumWidth(200)
+        self.connect(self.textbox_dark_file, SIGNAL('editingFinished ()'), self.on_dark_file_select)
+        self.b_open_dark = QPushButton(self)
+        self.b_open_dark.setText('Select dark file')
+        self.b_open_dark.clicked.connect(self.showDarkFileDialog)
+        self.b_open_daq_dark = QPushButton(self)
+        self.b_open_daq_dark.setText('Get from DAQ control')
+        self.b_open_daq_dark.clicked.connect(self.update_dark_file)
+        hbox_dark.addWidget(self.b_open_daq_dark)
+        hbox_dark.addWidget(self.b_open_dark)
+        hbox_dark.addStretch()
+        vbox.addLayout(hbox_dark)
+        hbox_dark1 = QHBoxLayout()        
+        hbox_dark1.addWidget(textbox_dark_file_label)
+        hbox_dark1.addWidget(self.textbox_dark_file)
+        vbox.addLayout(hbox_dark1)
+        vbox.addStretch()
         hbox_dark_integration = QHBoxLayout()
         hbox_dark_integration.addWidget( textbox_integration_label )
         hbox_dark_integration.addWidget(  self.textbox_integration )
-        hbox_dark_integration.addWidget( self.reset_integration_button )
+        hbox_dark_integration.addStretch()
         vbox.addLayout( hbox_dark_integration )
         self.form_layout.addRow(textbox_select_asic_label, self.combo_select_asic)
         self.form_layout.addRow(textbox_select_analysis_label, self.combo_select_analysis) 
@@ -524,8 +445,21 @@ class EpixEsaMainWindow(QMainWindow):
     def on_daq_control(self):
         self.daq_worker_widget.show()
 
+    
+    def showDarkFileDialog(self):
+        """Open file dialog to select a dark file."""
+        # select via dialog
+        file_name = QFileDialog.getOpenFileName(self,'Open dark file',self.__datadir)
+
+        # set the textbox
+        self.textbox_dark_file.setText(file_name)
+
+        # use the "button" click function to actually apply
+        self.on_dark_file_select()
+    
+
     def update_dark_file(self):
-        """Update the dark file used from the DAQ worker GUI."""
+        """Update the dark file used."""
 
         # update from the DAQ worker GUI if it's not empty and different than the one we have
         t = self.daq_worker_widget.textbox_dark_file.text()

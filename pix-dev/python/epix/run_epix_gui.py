@@ -37,10 +37,13 @@ def main():
     epixReader = None
     if args.light:
         epixReader = EpixFileReader(args.light)
+        # use a standard hold-off time if not given
+        if args.update == 0:
+            args.update = 200
     else:        
         epixReader = EpixShMemReader()
 
-    # set the sleep in sec's between frame reads
+    # set a sleep timer in sec's between frame reads
     epixReader.set_frame_sleep(args.update)
 
     # set debug flag for the reader

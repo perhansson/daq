@@ -76,18 +76,6 @@ class DaqWorker(QThread):
         
         pythonDaq.daqSoftReset()
 
-    def generate_dark(self, args):
-        """Create a dark file."""
-        print('DaqWorker: create dark file from args ')
-        print args
-        self.configure()
-        #self.set_run_parameters(run_type='dark',rate=1,count=10)
-        #self.set_run_parameters(run_type='dark',rate=1,count=10)
-        self.start_run(args)
-        #{'filepath':filename, 'rate':'Dark', 'count':10})
-        # would like to be able to control from here when to actually stop
-        #self.stop_run()
-    
     def set_run_parameters(self,run_type='',rate=1,count=10):
         """Set parameters for the run."""
         if run_type == 'dark':
@@ -99,11 +87,12 @@ class DaqWorker(QThread):
             rate_str = str(rate) + 'Hz'
         pythonDaq.daqSetRunParameters(rate_str,count)
 
-    #def start_run(self,paramsfilepath='',set_def=True):
     def start_run(self,params):
         """Start a run. """
         print('DaqWorker: start run with params')        
         print(params)
+
+        self.configure()
 
         #defaults
         rate_str = 'Beam'

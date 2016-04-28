@@ -35,6 +35,8 @@ def get_timer_data(timers):
         tot += t.diff()
     return tot, len(timers)
 
+
+
 class FrameAnalysis(object):
     """Analysis to run on a frame."""
     def __init__(self, name=''):
@@ -149,9 +151,9 @@ class FrameAnalysisTypes(object):
     """Hold all frame analysis to allow easy listing in GUIs."""
     types = [ FrameAnalysis('none'), \
               PixelThresholdAnalysis(), \
-              SimpleSeedAnalysis() , \
-              CheapPhotonAnalysis(), \
-              MeanShiftClusterAnalysis(), \
+              #SimpleSeedAnalysis() , \
+              #CheapPhotonAnalysis(), \
+              #MeanShiftClusterAnalysis(), \
               SimpleFixedWindowClusterAnalysis()]
     @staticmethod
     def get(s):

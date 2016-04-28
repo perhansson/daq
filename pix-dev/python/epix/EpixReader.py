@@ -19,9 +19,6 @@ class EpixReader(QThread):
         # mean of dark frames
         self.dark_frame_mean = None
 
-        # switch to turn on/off subtraction
-        self.do_dark_subtraction = True
-
         # time in seconds between frame reads
         self.frame_sleep = 0
         
@@ -30,9 +27,6 @@ class EpixReader(QThread):
     
         # frame holding the data
         self.frame = None
-
-        # asic to read ( -1 to read all)
-        self.selected_asic = -1
 
         # number of frames sent
         self.n_emit = 0
@@ -116,7 +110,6 @@ class EpixReader(QThread):
     
 
 
-    #def add_dark_file(self, filename, maxFrames=10, alg='mean'):
     def add_dark_file(self, filename, maxFrames=10, alg='median'):
         """ Process dark file """
         print('[EpixReader]: Adding dark file from', filename)
@@ -150,29 +143,11 @@ class EpixReader(QThread):
                         #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
                         if fs == EpixFrame.framesize:
 
-                            print (n, ' got frame with ', fs, ' words')
+                            print (str(n) + ' got frame with ' + str(fs) + ' words')
 
                             frame = EpixFrame(ret)
 
                             print (n, ' created EpixFrame')
-
-                            #drop_frame = False                            
-                            #s = np.sum(np.abs(np.diff(np.median(frame.super_rows, axis=0))))
-                            #if s > 10000:
-                            #    drop_frame = True
-                            #if drop_frame:
-                            #    print('DROP BAD FRAME')
-                            #    continue
-                            
-                            
-                            #tmp = np.empty([1,frame.super_rows.shape[0],frame.super_rows.shape[1]])
-                            #tmp[0] = frame.super_rows
-                            #tmp, dropped = dropbadframes(tmp)
-                            #if tmp.size == 0:
-                            #    print 'dropped frame'
-                            #    continue
-                            #else:
-                            #    print 'not a bad frame'
 
                             # create the dark sum frame
                             if dark_frame_sum == None:
@@ -191,10 +166,8 @@ class EpixReader(QThread):
                             n_frames += 1
 
                         else:
-                            print(n, ' got weird size from file fs ', fs , ' ret ', ret)
+                            print(str(n) + ' got weird size from file fs ' + str(fs) + ' ret ' + str(ret))
 
-                        #ans = raw_input('next frame?')
-                        #time.sleep(self.period)
                         print('[EpixReader]:  - got ', n_frames,' EpixFrames')
 
                         if maxFrames > 0 and n_frames >= maxFrames:
@@ -205,6 +178,7 @@ class EpixReader(QThread):
                     print('[EpixReader]:  - read ', n, ' times and got ', n_frames,' frames from file')
             
             # check that we got frames at all
+            ok = False
             if n_frames <= 0:
                 print('[EpixReader]: ERROR: no dark frames where found in file.')
             elif n_frames > 0 and n_frames < maxFrames:
@@ -214,51 +188,52 @@ class EpixReader(QThread):
 
                 # calculate mean for each pixel
                 self.dark_frame_mean = dark_frame_sum / float(n_frames)
-                # enable by default
-                self.do_dark_frame_subtraction = True
 
                 # calculate the median
                 self.dark_frame_median = np.median(dark_frames, axis=0)
-                print('save dark frame mean')
+                print('[EpixReader]: save dark frame mean')
                 print( self.dark_frame_mean)
-                print('save dark frame median')
+                print('[EpixReader]: save dark frame median')
                 print( self.dark_frame_median)
                 # save to file
                 np.savez( dark_filename, dark_frame_mean = self.dark_frame_mean, dark_frame_median = self.dark_frame_median)
+                ok = True
             
-            # now it should be there to be used
-            self.add_dark_file( filename, maxFrames, alg)
-
+            if ok:
+                # call the same function now that the file exists
+                self.add_dark_file( filename, maxFrames, alg)
+            else:
+                print('[EpixReader]: ERROR: Dark file not created.')
+        
         else:
-            print ('dark file exists ', dark_filename)
+            # the dark file summary exists
+            print ('[EpixReader]: dark file exists ', dark_filename)
+
+            # load the file
             dark_file = np.load(dark_filename)
-            print ('loaded dark file')
-            print dark_file.files
-            print dark_file['dark_frame_mean']
-            print dark_file['dark_frame_median']
-            #self.dark_frame_median = dark_file['dark_frame_median']
+            print ('[EpixReader]: loaded dark file')
+
+            self.dark_frame_mean = dark_file['dark_frame_mean']
+            self.dark_frame_median = dark_file['dark_frame_median']
+            
+            # emit the one selected
             if alg == 'mean':
-                self.dark_frame_mean = dark_file['dark_frame_mean']
                 self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
             elif alg == 'median':
-                self.dark_frame_median = dark_file['dark_frame_median']
-                self.dark_frame_mean = dark_file['dark_frame_median']
-                self.emit(SIGNAL('dark_mean'), self.dark_frame_mean)
+                self.emit(SIGNAL('dark_mean'), self.dark_frame_median)
             else:
-                print('this opt doesnt exist')
+                print('[EpixReader]: ERROR: this dark statistics option "'+ alg + '" doesnt exist!')
                 sys.exit(1)
-            #dark_file.close()
-            # enable by default
-            self.do_dark_frame_subtraction = True
-        print 'Done loading dark frame'
+            
+        print( '[EpixReader]: Done loading dark frame')
 
-
-    
 
     def set_frame_sleep(self, val_msec):
+        """Set the number of msec to sleep extra between reading frames."""
         self.frame_sleep = val_msec
 
     def do_frame_sleep(self):
+        """Sleep for a some time."""
         if self.frame_sleep > 0:
             n = 0
             n_target = self.frame_sleep
