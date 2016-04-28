@@ -425,8 +425,6 @@ class StripWorker(PlotWorker):
 
     def __init__(self, name, parent = None, n_integrate = 1, max_hist=100):    
         PlotWorker.__init__(self, name, parent, n_integrate)
-        #self.x = []
-        self.n_values = 0
         self.y = [] 
         for i in range(max_hist):
             self.y.append(0)
@@ -436,7 +434,6 @@ class StripWorker(PlotWorker):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
         #print('StripWorker: process data ' + str(data))
-        #if self.n_values > self.max_hist:
         self.y.pop(0)
         self.y.append(data)
         self.n += 1
@@ -455,7 +452,6 @@ class StripWidget(PlotWidget):
         self.d = None
         self.worker = StripWorker(self.name, parent, n_integrate, max_hist)
         self.worker.moveToThread( self.thread )
-        #self.thread = StripWorker(self.name, None, n_integrate, max_hist)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
         self.x = [] 
