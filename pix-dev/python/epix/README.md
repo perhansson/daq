@@ -15,26 +15,25 @@ $ ./bin/epixEsaGui
 Step 3. Start the ESA monitoring and control tool
 
 Start a new terminal
-$ cd epix_gui
+$ cd /home/epix/epix_gui
 $ source setup.sh
 $ cd daq_repo/pix-dev/python/epix
 
 Start the software.
 $ python run_epix_gui -i 5
 
-The '-i' option tells you how many frames to integrate before updating plots. 
+The '-i' option tells you how many frames to integrate before updating plots. This can be changed from the GUI later. 
 
 See more options with $ python run_epix_gui --help.
 
 Select dark file:
-Click the button "Select dark file". Select the ".bin" dark file you want to use. 
+Two options. 1) Click the button "Select dark file". Select the ".bin" dark file you want to use. 2) Click Get from DAQ Control. The latter will try to grab it from the DAQ control GUI (see later). 
 The software will build the dark frame summary file automatically if it's not existing already.
-NOTE: the selected file won't be shown in the text field directly here but will update once the data is coming in.
 
 Start monitoring:
 Click "Acquire Start/Stop".
 The bottom part of the GUI tells you which state the monitoring is in.
-The text line at the top should indicate the frame ID it's processing and the approximate rate. 
+The text line at the top should indicate the frame ID (starts from 0 after each start of the GUI) it's processing and the approximate rate of the online monitoring. 
 
 Open plots:
 Click the individual plots. 
@@ -48,29 +47,25 @@ The only one to use right now is:
 "Simple threshold": applies a threshold on all pixels. Typically 100ADC counts but can be configured.
 
 
-Step 4. Take a dark run with beam
-Click "DAQ Control GUI". A new GUI should pop up.
+Step 4. Take a run with beam trigger
+Click "DAQ Control GUI". A new GUI should pop up. 
 
-Click "Select dark file" and/or specify a full path to a new dark file name that you want to save the data to. 
-NOTE: If the field is empty a new filename will be automatically generated.
+The run number should be pre-filled and correspond to the latest run in the data directory.
 
-Click "Start"
-The DAQ will be confiugured and a run will be started behind the scenes.
+Click "Start New Run"
+NOTE: If the fields for dark and light files are empty (recommended!) filenames will be generated and displayed automatically.
+
+Click "Start New Run"
+The DAQ will be configured and a run will be started behind the scenes. A dark run will be taken first.
 NOTE: Keep the DAQ expert GUI (from step 2) visible at this moment to see that the run has started and see the event count. 
-Take about 300 events.  
+Take about 300 events. This will be updated in the future to have all info in one place.
 
-Click "Stop" to end the dark run.
+Click "Stop Dark Run" to end the dark run and automatically begin taking data. 
 
-Step 5. Take a normal run with beam
-On the "DAQ Control GUI" under the beamtrigger section: click "Configure"
-Wait for about 10s
-NOTE: Keep the DAQ expert GUI (from step 2) visible at this moment to see that the run is being configured and controlled properly. This will not be needed in the future.
+Click "Stop Run" to end the run. 
 
-Select a file or type in a full path to a file where you want to save the data.
+The run number will be automatically bumped if you follow step 4. 
 
-Click "Start". 
-
-NOTE: The online monitoring needs to be running to see update to plots (see step 3).
 
 
 
