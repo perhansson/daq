@@ -156,7 +156,8 @@ class DaqWorkerWidget(QWidget):
         self.textbox_light_file.setText(fname)
         
         # send the worker the instructions on the run
-        args = {'filepath':str(self.textbox_light_file.text()),'rate':'Beam','count':1000000}
+        #args = {'filepath':str(self.textbox_light_file.text()),'rate':'Beam','count':1000000}
+        args = {'filepath':str(self.textbox_light_file.text()),'rate':'1Hz','count':1000000}
         print('start run with opetions')
         print args
         self.emit(SIGNAL('start_run'), args)
@@ -245,7 +246,8 @@ class DaqWorkerWidget(QWidget):
         self.textbox_dark_file.setText(fname)
         
         # send the worker the instructions on the run
-        args = {'filepath':fname, 'rate':'Dark', 'count':10}
+        args = {'filepath':fname, 'rate':'10Hz', 'count':10}
+        #args = {'filepath':fname, 'rate':'Dark', 'count':10}
         self.emit(SIGNAL('start_run'),args)
     
 

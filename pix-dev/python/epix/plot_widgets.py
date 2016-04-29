@@ -388,7 +388,7 @@ class ImageWidget(PlotWidget):
         if self.ax == None:
             self.d = np.zeros_like( data ) # , dtype=np.int16 )
             self.ax = self.fig.add_subplot(1,1,1)
-            self.img = self.ax.imshow(self.d, vmin=0,vmax=500, interpolation='nearest', cmap='viridis')
+            self.img = self.ax.imshow(self.d, vmin=0,vmax=100, interpolation='nearest', cmap='viridis')
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
             self.fig.colorbar( self.img )
