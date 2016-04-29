@@ -4,7 +4,7 @@ import re
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import pythonDaq
-sys.path.append('/home/epix/devel/epix_software_trunk_devel/python/pylib')
+#sys.path.append('/home/epix/devel/epix_software_trunk_devel/python/pylib')
 from daq_client import DaqClient, DaqClientException
 
 

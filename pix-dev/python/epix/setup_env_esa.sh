@@ -7,3 +7,7 @@ pushd $DAQ
 source setup_env_esa.csh
 popd
 
+setenv PYTHONPATH ${PYTHONPATH}:${BASE}/python/pylib
+
+setenv DATADIR /home/epix/data
+

@@ -13,3 +13,8 @@ else
     echo "DAQ directory is ${BASE}"    
 endif
 
+setenv PYTHONPATH ${PYTHONPATH}:${BASE}/python/pylib
+
+setenv DATADIR $PWD
+
+

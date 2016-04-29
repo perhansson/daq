@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
@@ -18,7 +19,7 @@ from pix_threading import MyQThread
 
 class EpixEsaMainWindow(QMainWindow):
 
-    __datadir = '/home/epix/data'
+    __datadir = os.environ['DATADIR']
 
     def __init__(self, parent=None, debug=False):
         QMainWindow.__init__(self, parent)

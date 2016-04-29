@@ -11,7 +11,7 @@ from daq_worker import DaqWorker
 
 class DaqWorkerWidget(QWidget):
 
-    __datadir = '/home/epix/data'
+    __datadir = os.environ['DATADIR']
     
     def __init__(self, parent=None, show=False):
         QWidget.__init__(self,parent)
