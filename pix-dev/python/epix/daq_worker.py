@@ -1,10 +1,11 @@
 import sys
 import time
+import re
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 import pythonDaq
-sys.path.append('/home/epix/run_software/python/pylib')
-import daq_client
+sys.path.append('/home/epix/devel/epix_software_trunk_devel/python/pylib')
+from daq_client import DaqClient, DaqClientException
 
 
 
@@ -21,28 +22,46 @@ class DaqWorker(QThread):
     
     def __del__(self):
         self.running = False
+        self.daq_client.disable()
         self.wait()
     
     def run(self):
         """Called once by Qt after things are setup."""
         
-        print('DaqWorker: run')
+        print('[DaqWorker]: open pythonDaq')
 
         # open shared memory
         #pythonDaq.daqSharedDataOpen('epix', 1)
         pythonDaq.daqOpen('epix', 1)
         
-        print('DaqWorker: open socket client')
-        self.daq_client = daq_client.DaqClient('localhost',8090)
-        print('DaqWorker: open socket client done')
+        print('[DaqWorker]: open DaqClient')
+        self.daq_client = DaqClient('localhost',8090)
 
+        print('[DaqWorker]: enable DaqClient')
+        self.daq_client.enable()
 
-
-        # print some status while thread is alove
         while self.running:            
-            print('DaqWorker: state "' + pythonDaq.daqGetRunState() + '"')
-            time.sleep(2)
-    
+            self.send_stats()
+            time.sleep(1)
+        
+
+    def get_stats(self):
+        """Get statistics from the DAQ."""
+        s = self.daq_client.daqReadStatusNode('DataFileCount')
+        m = None
+        if s != None:
+            m = re.match('.*(\d+)\s+-\s+(\d+)\s+Hz.*',s)
+        if m != None:
+            n = int(m.group(1))
+            r = float(m.group(2))
+        else:
+            n = -1
+            r = -1.0
+        return  (pythonDaq.daqGetRunState(),n,r)
+        
+    def send_stats(self):
+        """Send the stats."""
+        self.emit(SIGNAL('daq_stats'),self.get_stats())
 
     def reset(self):
         """Reset the DAQ."""

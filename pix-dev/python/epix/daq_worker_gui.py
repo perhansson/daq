@@ -59,15 +59,25 @@ class DaqWorkerWidget(QWidget):
         hbox_run= QHBoxLayout()
         label_run = QLabel('Run')
         self.textbox_run = QLineEdit()
-        self.textbox_run.setMinimumWidth(10)
+        self.textbox_run.setMinimumWidth(6)
+        label_runstate = QLabel('Run State')
+        self.textbox_runstate = QLineEdit()
+        self.textbox_runstate.setMinimumWidth(10)
+        label_config = QLabel('Config')
+        self.textbox_config = QLineEdit()
+        self.textbox_config.setMinimumWidth(5)
         label_nevents = QLabel('Events')
         self.textbox_nevents = QLineEdit()
-        self.textbox_nevents.setMinimumWidth(10)
+        self.textbox_nevents.setMinimumWidth(7)
         label_rate = QLabel('Rate')
         self.textbox_rate = QLineEdit()
-        self.textbox_rate.setMinimumWidth(10)
+        self.textbox_rate.setMinimumWidth(6)
         hbox_run.addWidget(label_run)
         hbox_run.addWidget(self.textbox_run)
+        hbox_run.addWidget(label_config)
+        hbox_run.addWidget(self.textbox_config)
+        hbox_run.addWidget(label_runstate)
+        hbox_run.addWidget(self.textbox_runstate)
         hbox_run.addWidget(label_nevents)
         hbox_run.addWidget(self.textbox_nevents)
         hbox_run.addWidget(label_rate)
@@ -75,7 +85,8 @@ class DaqWorkerWidget(QWidget):
         vbox.addLayout(hbox_run)     
         r = self.find_run_number()
         self.textbox_run.setText(str(r))
-        self.textbox_nevents.setText('not impl.')
+        self.textbox_config.setText('not impl.')
+        self.textbox_runstate.setText('not impl.')
         self.textbox_nevents.setText('not impl.')
         self.textbox_rate.setText('not impl.')
 
@@ -170,6 +181,7 @@ class DaqWorkerWidget(QWidget):
         """Configure the DAQ."""
         self.emit(SIGNAL('configure'),1)
 
+
     def find_run_number(self):
         # parse the data directory and find the last run number
         runs = []
@@ -236,10 +248,20 @@ class DaqWorkerWidget(QWidget):
         self.emit(SIGNAL('start_run'),args)
     
 
+    def update_stats(self,stats):
+        """Update the stats."""
+        #print('[daq_worker_gui]: update stats ' + str(stats) + ': ' + stats[0] + ', ' +str( stats[1]) + ', ' + str(stats[2]))
+        if None not in stats:
+            self.textbox_runstate.setText(stats[0])
+            self.textbox_nevents.setText(str(stats[1]))
+            self.textbox_rate.setText('{0:.1f} Hz'.format(stats[2]))
+    
+
     def connect_workers(self, daq_worker):        
         self.connect(self, SIGNAL('configure'), daq_worker.configure)
         self.connect(self, SIGNAL('start_run'), daq_worker.start_run)
         self.connect(self, SIGNAL('stop_run'), daq_worker.stop_run)
+        self.connect(daq_worker, SIGNAL('daq_stats'), self.update_stats)
 
 
 
