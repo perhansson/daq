@@ -136,7 +136,7 @@ class DaqWorkerWidget(QWidget):
 
     def showLightFileDialog(self):
         """Open file dialog to select a light file."""
-        file_name = QFileDialog.getOpenFileName(self,'Open light file',DaqWorkerWidget.__datadir)
+        file_name = QFileDialog.getOpenFileName(self,'Open light file',self.__datadir)
         self.textbox_light_file.setText(file_name)
     
 
@@ -145,7 +145,7 @@ class DaqWorkerWidget(QWidget):
         if ignoreTextField:
             # create a new file based on date and run text field
             run = self.textbox_run.text()
-            fname = os.path.join(DaqWorkerWidget.__datadir,'{0}_run{1}.bin'.format( datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'), run ))
+            fname = os.path.join(self.__datadir,'{0}_run{1}.bin'.format( datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'), run ))
         else:
             # use the given name in the text box
             fname = str(self.textbox_light_file.text())
@@ -187,17 +187,18 @@ class DaqWorkerWidget(QWidget):
         runs = []
         #print('self.__datadir ' + self.__datadir)
         #print('os.listdir(self.__datadir) ' + str(os.listdir(self.__datadir)))
-        for file_name in os.listdir(self.__datadir):
+        if os.path.isdir(self.__datadir):
+            for file_name in os.listdir(self.__datadir):
             #print ('test ' + file_name)
-            m = re.match('.*run_?(\d+).*', file_name)
-            if m != None:
-                run = int(m.group(1))
-                runs.append(run)
+                m = re.match('.*run_?(\d+).*', file_name)
+                if m != None:
+                    run = int(m.group(1))
+                    runs.append(run)
         if runs:            
             r = max(runs)
         else:
             print ('[daq_worker_gui] : find_run_number : WARNING no runs found in ' + self.__datadir)
-            r = -1
+            r = 0
         print ('[daq_worker_gui] : find_run_number :  found max run ' + str(r) + ' from ' + str(len(runs)) + ' runs')
         return r
     
