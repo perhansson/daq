@@ -166,9 +166,14 @@ class EpixEsaMainWindow(QMainWindow):
                 self.select_asic = c
             # should send this to the reader to avoid reading all of the data
             self.emit(SIGNAL("selectASIC"), self.select_asic)
+            # reset data in case it's not compatible with the new selection
+            for w in self.plot_widgets:
+                w[0].worker.clear_data()
+                w[0].clear_figure()
+        
         except ValueError:
             print('[EpixEsaMainWindow]: \n\n========= WARNING, bad ASIC selection input \"' + str(self.combo_select_asic.currentText()) + '\"\n Need to be an integer only')
-
+        
     
     def on_select_analysis(self):
         """ update the selected analysis"""
