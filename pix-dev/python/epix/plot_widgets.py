@@ -193,6 +193,12 @@ class PlotWidget(QWidget):
 
 
 
+    def create_zscale(self):
+        """Abstract function"""
+        return None
+    
+
+
     def create_main(self):
 
         # main vertical layout
@@ -221,64 +227,10 @@ class PlotWidget(QWidget):
 
         hbox.addLayout( vbox_canvas)
 
-
-        vbox_zscale = QVBoxLayout()
-
-        textbox_zscale_label = QLabel('z-scale')
-        vbox_zscale.addWidget(textbox_zscale_label)
+        vbox_zscale = self.create_zscale()
         
-        hbox1_zscale = QHBoxLayout()
-        hbox1_zscale.addWidget(QLabel('min'))
-        hbox1_zscale.addWidget(QLabel('max'))
-        vbox_zscale.addLayout(hbox1_zscale)
-
-
-        # Create plot adjustments
-        self.zscale_min = 0
-        self.zscale_max = 500
-        self.slider_zscale_min = QSlider(Qt.Vertical)
-        self.slider_zscale_min.setRange(-16384,16384)
-        self.slider_zscale_min.setValue(self.zscale_min)
-        self.slider_zscale_min.setTickPosition(QSlider.TicksLeft)
-        self.slider_zscale_min.setTickInterval(1000)
-        self.slider_zscale_max = QSlider(Qt.Vertical)
-        self.slider_zscale_max.setRange(-16384,16384)
-        self.slider_zscale_max.setValue(self.zscale_max)
-        self.slider_zscale_max.setTickPosition(QSlider.TicksBothSides)
-        self.slider_zscale_max.setTickInterval(1000)
-        self.zscale_min = self.slider_zscale_min.value()
-        self.zscale_max = self.slider_zscale_max.value()
-        # connect sliders to changes on GUI
-        self.connect(self.slider_zscale_min, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
-        self.connect(self.slider_zscale_max, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
-        #self.connect(self.slider_zscale_min, SIGNAL('valueChanged(int)'), self.on_scale_slider)
-        #self.connect(self.slider_zscale_max, SIGNAL('valueChanged(int)'), self.on_scale_slider)
-
-        hbox2_zscale = QHBoxLayout()        
-        hbox2_zscale.addWidget(self.slider_zscale_min)
-        hbox2_zscale.addWidget(self.slider_zscale_max)
-        vbox_zscale.addLayout(hbox2_zscale)
-
-        self.textbox_zscale_min = QLineEdit()
-        self.textbox_zscale_min.setMinimumWidth(50)
-        self.textbox_zscale_min.setMaximumWidth(50)
-        self.textbox_zscale_min.setText(str(self.zscale_min))
-        self.textbox_zscale_max = QLineEdit()
-        self.textbox_zscale_max.setMinimumWidth(50)
-        self.textbox_zscale_max.setMaximumWidth(50)
-        self.textbox_zscale_max.setText(str(self.zscale_max))
-        
-        self.connect(self.textbox_zscale_min, SIGNAL('editingFinished ()'), self.on_scale_text)
-        self.connect(self.textbox_zscale_max, SIGNAL('editingFinished ()'), self.on_scale_text)
-
-        hbox3_zscale = QHBoxLayout()        
-        hbox3_zscale.addWidget(self.textbox_zscale_min)
-        hbox3_zscale.addWidget(self.textbox_zscale_max)
-        vbox_zscale.addLayout(hbox3_zscale)
-
-
-
-        hbox.addLayout(vbox_zscale)
+        if vbox_zscale != None:
+            hbox.addLayout(vbox_zscale)
         
         vbox.addLayout(hbox)
 
@@ -533,6 +485,63 @@ class ImageWidget(PlotWidget):
             print('ImageWidget on_draw {0} frames with {1} sec/image'.format(self.n, self.t0sum/10.))
             self.t0sum = 0.
     
+    def create_zscale(self):
+        
+        vbox_zscale = QVBoxLayout()
+
+        textbox_zscale_label = QLabel('z-scale')
+        vbox_zscale.addWidget(textbox_zscale_label)
+        
+        hbox1_zscale = QHBoxLayout()
+        hbox1_zscale.addWidget(QLabel('min'))
+        hbox1_zscale.addWidget(QLabel('max'))
+        vbox_zscale.addLayout(hbox1_zscale)
+
+
+        # Create plot adjustments
+        self.zscale_min = 0
+        self.zscale_max = 500
+        self.slider_zscale_min = QSlider(Qt.Vertical)
+        self.slider_zscale_min.setRange(-16384,16384)
+        self.slider_zscale_min.setValue(self.zscale_min)
+        self.slider_zscale_min.setTickPosition(QSlider.TicksLeft)
+        self.slider_zscale_min.setTickInterval(1000)
+        self.slider_zscale_max = QSlider(Qt.Vertical)
+        self.slider_zscale_max.setRange(-16384,16384)
+        self.slider_zscale_max.setValue(self.zscale_max)
+        self.slider_zscale_max.setTickPosition(QSlider.TicksBothSides)
+        self.slider_zscale_max.setTickInterval(1000)
+        self.zscale_min = self.slider_zscale_min.value()
+        self.zscale_max = self.slider_zscale_max.value()
+        # connect sliders to changes on GUI
+        self.connect(self.slider_zscale_min, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
+        self.connect(self.slider_zscale_max, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
+        #self.connect(self.slider_zscale_min, SIGNAL('valueChanged(int)'), self.on_scale_slider)
+        #self.connect(self.slider_zscale_max, SIGNAL('valueChanged(int)'), self.on_scale_slider)
+
+        hbox2_zscale = QHBoxLayout()        
+        hbox2_zscale.addWidget(self.slider_zscale_min)
+        hbox2_zscale.addWidget(self.slider_zscale_max)
+        vbox_zscale.addLayout(hbox2_zscale)
+
+        self.textbox_zscale_min = QLineEdit()
+        self.textbox_zscale_min.setMinimumWidth(50)
+        self.textbox_zscale_min.setMaximumWidth(50)
+        self.textbox_zscale_min.setText(str(self.zscale_min))
+        self.textbox_zscale_max = QLineEdit()
+        self.textbox_zscale_max.setMinimumWidth(50)
+        self.textbox_zscale_max.setMaximumWidth(50)
+        self.textbox_zscale_max.setText(str(self.zscale_max))
+        
+        self.connect(self.textbox_zscale_min, SIGNAL('editingFinished ()'), self.on_scale_text)
+        self.connect(self.textbox_zscale_max, SIGNAL('editingFinished ()'), self.on_scale_text)
+
+        hbox3_zscale = QHBoxLayout()        
+        hbox3_zscale.addWidget(self.textbox_zscale_min)
+        hbox3_zscale.addWidget(self.textbox_zscale_max)
+        vbox_zscale.addLayout(hbox3_zscale)
+
+        return vbox_zscale
 
 
 class StripWorker(PlotWorker):
