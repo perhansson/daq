@@ -45,6 +45,10 @@ class PlotWorker(QObject):
         """Abstract function"""
         print('abstract new_data function called!')
 
+    def clear_data(self):
+        """Abstract function to reset data in the widgets"""
+        #print('abstract clear_data function called!')
+
         
 
 class PlotWidget(QWidget):
@@ -119,7 +123,52 @@ class PlotWidget(QWidget):
     def set_geometry(self):
         self.setGeometry(10,10,500,500)
         self.setWindowTitle( self.name )
+
+    def clear_figure(self):
+        """Clear figure and it's axes"""
+        # clear figure with all it's axes
+        self.fig.clear()
+        # set axes to none to force it to redraw on next call
+        self.ax = None
     
+
+    def on_scale_slider(self, value):
+        """Set new axis limits and clear the figure so that it get's updated on next call. 
+
+        Ignore value and which wone that sent the update.
+        """
+
+        #print('[PlotWidget] : \"' + self.name + '\" on_scale_slider')
+        if self.slider_zscale_min.value() < self.slider_zscale_max.value():
+            self.zscale_min = self.slider_zscale_min.value()
+            self.zscale_max = self.slider_zscale_max.value()
+            self.textbox_zscale_min.setText(str(self.zscale_min))
+            self.textbox_zscale_max.setText(str(self.zscale_max))
+
+            self.clear_figure()
+        
+        else:
+            print('[PlotWidget] : \"' + self.name + '\" WARNING z-scale is undefined min= ' + str(self.slider_zscale_min.value()) + ' max=' + str(self.slider_zscale_max.value()))
+
+
+    def on_scale_text(self):
+        """Set new axis limits and clear the figure so that it get's updated on next call. 
+        """
+
+        #print('[PlotWidget] : \"' + self.name + '\" on_scale_text')
+        if int(self.textbox_zscale_min.text()) < int(self.textbox_zscale_max.text()):
+            self.zscale_min = int(self.textbox_zscale_min.text())
+            self.zscale_max = int(self.textbox_zscale_max.text())
+            self.slider_zscale_min.setValue(self.zscale_min)
+            self.slider_zscale_max.setValue(self.zscale_min)
+
+            self.clear_figure()
+        
+        else:
+            print('[PlotWidget] : \"' + self.name + '\" WARNING z-scale is undefined min= ' + str(self.slider_zscale_min.value()) + ' max=' + str(self.slider_zscale_max.value()))
+
+        
+
     
     def create_menu(self):        
 
@@ -146,8 +195,13 @@ class PlotWidget(QWidget):
 
     def create_main(self):
 
+        # main vertical layout
         vbox  = QVBoxLayout()
 
+        # canvas horizontal layout
+        hbox = QHBoxLayout()
+
+        # create plot canvas
         #self.dpi = 100
         #self.fig = plt.Figure(figsize=(20, 20), dpi=150)
         self.fig = plt.Figure() #figsize=(10, 5), dpi=150)
@@ -156,11 +210,79 @@ class PlotWidget(QWidget):
         self.ax = None #self.fig.add_subplot(111)        
         self.img = None
 
-         # Create the navigation toolbar, tied to the canvas        
-        self.mpl_toolbar = NavigationToolbar(self.canvas, self)
 
-        vbox.addWidget( self.canvas )
-        vbox.addWidget( self.mpl_toolbar )
+        vbox_canvas = QVBoxLayout()
+        vbox_canvas.addWidget( self.canvas )
+
+        # Create the navigation toolbar, tied to the canvas        
+        self.mpl_toolbar = NavigationToolbar(self.canvas, self)
+        
+        vbox_canvas.addWidget( self.mpl_toolbar )
+
+        hbox.addLayout( vbox_canvas)
+
+
+        vbox_zscale = QVBoxLayout()
+
+        textbox_zscale_label = QLabel('z-scale')
+        vbox_zscale.addWidget(textbox_zscale_label)
+        
+        hbox1_zscale = QHBoxLayout()
+        hbox1_zscale.addWidget(QLabel('min'))
+        hbox1_zscale.addWidget(QLabel('max'))
+        vbox_zscale.addLayout(hbox1_zscale)
+
+
+        # Create plot adjustments
+        self.zscale_min = 0
+        self.zscale_max = 500
+        self.slider_zscale_min = QSlider(Qt.Vertical)
+        self.slider_zscale_min.setRange(-16384,16384)
+        self.slider_zscale_min.setValue(self.zscale_min)
+        self.slider_zscale_min.setTickPosition(QSlider.TicksLeft)
+        self.slider_zscale_min.setTickInterval(1000)
+        self.slider_zscale_max = QSlider(Qt.Vertical)
+        self.slider_zscale_max.setRange(-16384,16384)
+        self.slider_zscale_max.setValue(self.zscale_max)
+        self.slider_zscale_max.setTickPosition(QSlider.TicksBothSides)
+        self.slider_zscale_max.setTickInterval(1000)
+        self.zscale_min = self.slider_zscale_min.value()
+        self.zscale_max = self.slider_zscale_max.value()
+        # connect sliders to changes on GUI
+        self.connect(self.slider_zscale_min, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
+        self.connect(self.slider_zscale_max, SIGNAL('sliderMoved(int)'), self.on_scale_slider)
+        #self.connect(self.slider_zscale_min, SIGNAL('valueChanged(int)'), self.on_scale_slider)
+        #self.connect(self.slider_zscale_max, SIGNAL('valueChanged(int)'), self.on_scale_slider)
+
+        hbox2_zscale = QHBoxLayout()        
+        hbox2_zscale.addWidget(self.slider_zscale_min)
+        hbox2_zscale.addWidget(self.slider_zscale_max)
+        vbox_zscale.addLayout(hbox2_zscale)
+
+        self.textbox_zscale_min = QLineEdit()
+        self.textbox_zscale_min.setMinimumWidth(50)
+        self.textbox_zscale_min.setMaximumWidth(50)
+        self.textbox_zscale_min.setText(str(self.zscale_min))
+        self.textbox_zscale_max = QLineEdit()
+        self.textbox_zscale_max.setMinimumWidth(50)
+        self.textbox_zscale_max.setMaximumWidth(50)
+        self.textbox_zscale_max.setText(str(self.zscale_max))
+        
+        self.connect(self.textbox_zscale_min, SIGNAL('editingFinished ()'), self.on_scale_text)
+        self.connect(self.textbox_zscale_max, SIGNAL('editingFinished ()'), self.on_scale_text)
+
+        hbox3_zscale = QHBoxLayout()        
+        hbox3_zscale.addWidget(self.textbox_zscale_min)
+        hbox3_zscale.addWidget(self.textbox_zscale_max)
+        vbox_zscale.addLayout(hbox3_zscale)
+
+
+
+        hbox.addLayout(vbox_zscale)
+        
+        vbox.addLayout(hbox)
+
+
 
         # create quit button
         #self.quit_button = QPushButton(self)
@@ -350,6 +472,10 @@ class ImageWorker(PlotWorker):
         PlotWorker.__init__(self, name, parent, n_integrate)
         self.d = None
 
+    def clear_data(self):
+        """Clear the data object"""
+        self.d = None
+    
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
         self.print_thread('new_data')
@@ -388,7 +514,7 @@ class ImageWidget(PlotWidget):
         if self.ax == None:
             self.d = np.zeros_like( data ) # , dtype=np.int16 )
             self.ax = self.fig.add_subplot(1,1,1)
-            self.img = self.ax.imshow(self.d, vmin=0,vmax=500, interpolation='nearest', cmap='viridis')
+            self.img = self.ax.imshow(self.d, vmin=self.zscale_min,vmax=self.zscale_max, interpolation='nearest', cmap='viridis')
             self.ax.set_xlabel(self.x_label, fontsize=14, color='black')
             self.ax.set_ylabel(self.y_label, fontsize=14, color='black')
             self.fig.colorbar( self.img )
