@@ -6,7 +6,6 @@ import time
 import numpy as np
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
-from frame import EpixFrame
 from pix_threading import MyQThread
 from pix_utils import toint, dropbadframes, FrameAnalysisTypes, FrameTimer, get_timer_data
 
@@ -19,7 +18,7 @@ class FrameWorker(QObject):
 
     debug = False
 
-    def __init__(self,name):
+    def __init__(self,name, frame):
         super(FrameWorker, self).__init__()
         self.name = name
         self.drop_bad_frames = False
@@ -30,7 +29,7 @@ class FrameWorker(QObject):
         self.n_process = 0
         self.__t0_ana_sum = 0
         self.__n_ana_sum = 0
-        self.frame = EpixFrame()
+        self.frame = frame
         self.dark_frame_mean = None
         self.selected_asic = -1
         self.process_timers = []
@@ -56,6 +55,20 @@ class FrameWorker(QObject):
 
     def set_dark_mean(self, dark_frame_mean):
         self.dark_frame_mean = dark_frame_mean
+
+    def read_dark_file(self,filename):
+        """Read the dark file and extract the mean."""
+
+        dark_filename = os.path.splitext( filename )[0] + '-summary.npz'
+        self.print_debug('read dark file from ' + dark_filename)
+        if not os.path.isfile( dark_filename ):
+            self.print_debug('file ' + dark_filename + ' is not a file?!')
+        else:
+            # load the file
+            dark_file = np.load(dark_filename)
+            self.print_debug('loaded dark file with median frame')
+            self.print_debug(str(dark_file['dark_frame_median']))
+            self.set_dark_mean(dark_file['dark_frame_median'])
 
     def select_asic(self, asic):
         """Select which asic to read data from."""
@@ -220,10 +233,10 @@ class FrameWorker(QObject):
 
 class FrameWorkerController(QObject):
     """Controller class that wraps the actual work into it's own thread."""
-    def __init__(self, name):
+    def __init__(self, name, frame):
         super(FrameWorkerController, self).__init__()
         self.thread = MyQThread()
         self.thread.start()
-        self.worker = FrameWorker(name)
+        self.worker = FrameWorker(name, frame)
         self.worker.moveToThread( self.thread )
 
