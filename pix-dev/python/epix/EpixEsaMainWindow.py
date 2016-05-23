@@ -101,17 +101,28 @@ class EpixEsaMainWindow(QMainWindow):
 
         #QApplication.processEvents()
 
+        # calculate the rate
         if self.t0_frame_diff == 0:
             rate = -1
         else :
             rate = 1000.0/float(self.t0_frame_diff)
-        self.textbox.setText('Processed frame {0} ( {1:.1f}msec/{2:.1f}Hz,  processed {3})'.format(frame_id,self.t0_frame_diff, rate, self.nframes ))
 
+        # update stat counters
+        self.updateStats(frame_id, rate, self.nframes)
+
+        # update frame counter
         self.nframes += 1
 
         QApplication.processEvents()
 
 
+
+    def updateStats(self, i, rate, n):
+        """Update stat boxes."""
+        self.textbox_frameid.setText(str(i))
+        self.textbox_framerate.setText('{0:.1f}Hz'.format(rate))
+        self.textbox_frameprocessed.setText(str(self.nframes))
+    
     def newState(self,state_str):
         self.run_state = state_str
         #update GUI
@@ -222,7 +233,44 @@ class EpixEsaMainWindow(QMainWindow):
         self.add_actions(self.help_menu, (about_action,))
 
 
+    def create_stat_view(self, vbox):
 
+        vbox.addWidget(QLabel('Frame processing statistics:'))
+        hbox = QHBoxLayout()
+        #hbox.addWidget(QLabel('Processing stats:'))
+
+        #self.form_layout_stat = QFormLayout()
+        # frame id
+        textbox_frameid_label = QLabel('ID:')
+        self.textbox_frameid = QLineEdit()
+        self.textbox_frameid.setMinimumWidth(50)
+        self.textbox_frameid.setMaximumWidth(50)        
+        #self.form_layout_stat.addRow( textbox_frameid_label, self.textbox_frameid)
+        hbox.addWidget(textbox_frameid_label)
+        hbox.addWidget(self.textbox_frameid)
+
+        # frame rate
+        textbox_framerate_label = QLabel('Rate:')
+        self.textbox_framerate = QLineEdit()
+        self.textbox_framerate.setMinimumWidth(50)
+        self.textbox_framerate.setMaximumWidth(50)        
+        #self.form_layout_stat.addRow( textbox_framerate_label, self.textbox_framerate)
+        hbox.addWidget(textbox_framerate_label)
+        hbox.addWidget(self.textbox_framerate)
+        
+        # frames processed
+        textbox_frameprocessed_label = QLabel('# processed:')
+        self.textbox_frameprocessed = QLineEdit()
+        self.textbox_frameprocessed.setMinimumWidth(50)
+        self.textbox_frameprocessed.setMaximumWidth(50)        
+        #self.form_layout_stat.addRow( textbox_frameprocessed_label, self.textbox_frameprocessed)
+        hbox.addWidget(textbox_frameprocessed_label)
+        hbox.addWidget(self.textbox_frameprocessed)
+
+        #vbox.addLayout(self.form_layout_stat)
+        vbox.addLayout(hbox)
+    
+    
     def create_main_frame(self):
         self.main_frame = QWidget()
         
@@ -264,12 +312,14 @@ class EpixEsaMainWindow(QMainWindow):
         self.grid_cb.setChecked(False)
         
         vbox = QVBoxLayout()
-        self.form_layout_info = QFormLayout()
-        self.form_layout_info.addRow( textbox_label, self.textbox)
-        vbox.addLayout(self.form_layout_info)
-        vbox.addWidget(self.textbox)
+        #self.form_layout_info = QFormLayout()
+        #self.form_layout_info.addRow( textbox_label, self.textbox)
+        #vbox.addLayout(self.form_layout_info)
+        #vbox.addWidget(self.textbox)
         #vbox.addWidget(self.canvas)
         #vbox.addWidget(self.mpl_toolbar)
+
+        self.create_stat_view(vbox)
 
 
         self.quit_button = QPushButton("&Quit")
@@ -281,10 +331,11 @@ class EpixEsaMainWindow(QMainWindow):
         hbox_cntrl.addWidget( self.acq_button)
         hbox_cntrl.addWidget( self.daq_button )        
         vbox.addLayout( hbox_cntrl )
-        vbox.addStretch(1)
+        #vbox.addStretch(1)
 
         hbox_dark = QHBoxLayout()
         textbox_dark_file_label = QLabel('Dark file:')
+
         self.textbox_dark_file = QLineEdit()
         #self.textbox_dark_file.setMaximumWidth(100)
         self.textbox_dark_file.setMinimumWidth(200)
@@ -297,23 +348,29 @@ class EpixEsaMainWindow(QMainWindow):
         self.b_open_daq_dark.clicked.connect(self.update_dark_file)
         hbox_dark.addWidget(self.b_open_daq_dark)
         hbox_dark.addWidget(self.b_open_dark)
-        hbox_dark.addStretch()
-        vbox.addLayout(hbox_dark)
+        #hbox_dark.addStretch()
         hbox_dark1 = QHBoxLayout()        
         hbox_dark1.addWidget(textbox_dark_file_label)
         hbox_dark1.addWidget(self.textbox_dark_file)
+
         vbox.addLayout(hbox_dark1)
-        vbox.addStretch()
-        hbox_dark_integration = QHBoxLayout()
-        hbox_dark_integration.addWidget( textbox_integration_label )
-        hbox_dark_integration.addWidget(  self.textbox_integration )
-        hbox_dark_integration.addStretch()
-        vbox.addLayout( hbox_dark_integration )
+        vbox.addLayout(hbox_dark)
+        #vbox.addStretch()
+
         self.form_layout.addRow(textbox_select_asic_label, self.combo_select_asic)
         self.form_layout.addRow(textbox_select_analysis_label, self.combo_select_analysis) 
-        self.form_layout.addRow(self.b_open_dark, self.textbox_dark_file)
+        #self.form_layout.addRow(self.b_open_dark, self.textbox_dark_file)
         self.form_layout.addRow( textbox_plot_options_label, self.grid_cb)
+        self.form_layout.addRow( textbox_integration_label, self.textbox_integration)
+
         vbox.addLayout( self.form_layout )
+
+        #hbox_dark_integration = QHBoxLayout()
+        #hbox_dark_integration.addWidget( textbox_integration_label )
+        #hbox_dark_integration.addWidget(  self.textbox_integration )
+        #hbox_dark_integration.addStretch()
+        #vbox.addLayout( hbox_dark_integration )
+
 
         vbox.addWidget( QLabel('Plots') )
         self.frame_button = QPushButton("&Frame")
