@@ -10,7 +10,51 @@ from epix import Epix100a, fmap
 from pix_utils import FrameTimer as timer
 
 
-class EpixFrame(object):
+
+class PixFrame(object):
+    """Base class to store a readout frame."""
+
+    def __init__(self, nx, ny, framesize):
+        self.super_rows = np.zeros([ny, nx], dtype=np.int16)
+        self.clusters = []
+    
+    def get_n_asics(self):
+        """Abstract method."""
+        raise NotImplementedError
+    
+    def get_nx(self):
+        """Abstract method."""
+        raise NotImplementedError
+
+    def get_ny(self):
+        """Abstract method."""
+        raise NotImplementedError
+
+    def get_framesize(self):
+        """Abstract method."""
+        raise NotImplementedError
+
+    def set_data_fast(self,data):
+        """Abstract method."""
+        raise NotImplementedError
+
+    def reset(self):
+        """Fill frame with zeroes."""
+        self.super_rows.fill(0)
+
+    def add(self,other):
+        """Add another frame to the current one"""
+        self.super_rows += other.super_rows
+        self.clusters.extend(other.clusters)
+        
+    def get_data(self,asic):
+        """Abstract method."""
+        raise NotImplementedError
+    
+
+
+
+class EpixFrame(PixFrame):
     '''Convert readout order into an ordered pixel image for Epix100a.'''
     nx = 768
     ny = 708
@@ -26,42 +70,25 @@ class EpixFrame(object):
     framesize= n_head + n_super_rows*len_super_row/2 + n_tps_words + n_footer_words
     n_asics = 4
 
-    def __init__(self,data = None, asic=-1):
+    def __init__(self):
+        super(EpixFrame,self).__init__(EpixFrame.nx, EpixFrame.ny, EpixFrame.framesize)        
 
-        # store a full readout frame
-        self.super_rows = np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.int16)
+    def get_n_asics(self):
+        """Abstract method."""
+        return EpixFrame.n_asics
 
-        # set the data if available
-        if data != None:
-            self.set_data_fast(data)        
-            #self.set_data(data,asic)        
+    def get_nx(self):
+        """Abstract method."""
+        return EpixFrame.nx
 
-        # clusters
-        self.clusters = []
+    def get_ny(self):
+        """Abstract method."""
+        return EpixFrame.ny
 
+    def get_framesize(self):
+        """Abstract method."""
+        return EpixFrame.framesize
 
-    def add(self,other):
-        """Add another frame to the current one"""
-        self.super_rows += other.super_rows
-        self.clusters.extend(other.clusters)
-        
-    def get_data(self,asic):
-        """Return data for a given asic or the full frame."""
-        # see if we want all of them
-        if asic < 0:            
-            return self.super_rows
-        elif asic == 0:            
-            return self.super_rows[EpixFrame.ny/2: , EpixFrame.nx/2:]
-        elif asic == 1:            
-            return self.super_rows[:EpixFrame.ny/2 , EpixFrame.nx/2:]
-        elif asic == 2:            
-            return self.super_rows[:EpixFrame.ny/2 , :EpixFrame.nx/2]
-        elif asic == 3:            
-            return self.super_rows[EpixFrame.ny/2: , :EpixFrame.nx/2]
-        else:
-            print('ERROR invalid asic nr \"', asic, '\", must be less than ', EpixFrame.n_asics )
-    
-                
     def __get_unscrambled_row(self, super_row):      
         k = super_row/2
         r = super_row%2
@@ -71,72 +98,26 @@ class EpixFrame(object):
             i = EpixFrame.ny/2 + ( k + r)
         return i
 
-
-    def reset(self):
-        """Fill frame with zeroes."""
-        self.super_rows.fill(0)
+    def get_data(self,asic):
+        """Return data for a given asic or the full frame."""
+        n_asics = self.get_n_asics()
+        nx = self.get_nx()
+        ny = self.get_ny()
+        # see if we want all of them
+        if asic < 0:            
+            return self.super_rows
+        elif asic == 0:            
+            return self.super_rows[ny/2: , nx/2:]
+        elif asic == 1:            
+            return self.super_rows[:ny/2 , nx/2:]
+        elif asic == 2:            
+            return self.super_rows[:ny/2 , :nx/2]
+        elif asic == 3:            
+            return self.super_rows[ny/2: , :nx/2]
+        else:
+            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
     
 
-    #def set_data_fast(self, data, asic):
-    #    #np.concatenate(( np.flipud(out[:,nx:2*nx]), out[:,0:nx]), axis=0)
-    
-    def set_data(self, data, asic):
-        """Organize data into an unscrambled image."""
-
-        # Note that I don't clear the frame here explicitly
-        #self.super_rows =  np.zeros([EpixFrame.ny, EpixFrame.nx], dtype=np.int16)
-
-        # Set only the data for the asic selected
-        # this is kind of hacky now.
-
-        for i in range( EpixFrame.ny ):
-
-            # offset start with header words
-            offset_start = i*EpixFrame.nx/2 +  EpixFrame.n_head 
-            offset_end = (i+1)*EpixFrame.nx/2 + EpixFrame.n_head
-
-            # get the correct id
-            idx = self.__get_unscrambled_row( i )
-            
-            # reject the row if it's not on the selected half of the sensor
-            if (asic == 0 or asic == 3) and idx < EpixFrame.ny/2:
-                continue
-            if (asic == 1 or asic == 2) and idx >= EpixFrame.ny/2:
-                continue
-
-            #print( i, ' -> idx ', idx, ' ok')
-
-            # pixel index along x
-            iword = 0
-            ix = 0
-            reject = False
-            # loop over 32bit words            
-            for val in data[offset_start:offset_end]:
-                
-                # reject the column if not on the selected asic
-                reject = False
-                if (asic == 0 or asic == 1) and iword < EpixFrame.nx/4:
-                    reject = True
-                if (asic == 2 or asic == 3) and iword >= EpixFrame.nx/4:
-                    reject = True
-                
-                if reject:
-                    iword += 1
-                    ix += 2
-                    continue
-            
-                # set the data finally
-                # bits[31:16]
-                self.super_rows[idx][ix] = ( val & 0xFFFF  )
-                ix += 1
-                # bits[15:0] 
-                self.super_rows[idx][ix] = ( (val >> 16) & 0xFFFF  )
-                ix += 1
-                
-                iword += 1
-        
-                   
-    
     def set_data_fast(self,data):
         """ Organize into raw super rows """
         #print('set super rows')
@@ -144,34 +125,22 @@ class EpixFrame(object):
         t0 = timer('set_data_fast')
         t0.start()
         
-        nx = EpixFrame.nx
-        ny = EpixFrame.ny
+        nx = self.get_nx()
+        ny = self.get_ny()
         i = 0
-
+        
         # find the pixel data only
         offset_start = EpixFrame.n_head 
-        #offset_start = i*EpixFrame.nx/2 +  EpixFrame.n_head 
-        #offset_end = (i+1)*EpixFrame.nx/2 + EpixFrame.n_head
-        #frame_data2 = data[offset_start:offset_end]        
-        #frame_data2 = data[offset_start:offset_end]        
+
         # convert to array!
         frame_data = np.asarray(data[offset_start:((nx/2)*ny+offset_start)],dtype=np.uint32)
 
         # read out the packed pixel adc values
         frame_data_odd = (frame_data >> 16) & 0xFFFF 
         frame_data_even  = frame_data & 0xFFFF 
-        #frame_data_even = (frame_data >> 16) & 0xFFFF 
-        #frame_data_odd  = frame_data & 0xFFFF 
 
         # new int16 array to hold final result
         frame_data_new = np.empty(ny*nx, dtype=np.int16)
-
-        #print('frame_data ' + str(np.shape(frame_data)))
-        #print('frame_data_even ' + str(np.shape(frame_data_even)))
-        #print('frame_data_odd ' + str(np.shape(frame_data_odd)))
-        #print('frame_data_new ' + str(np.shape(frame_data_new)))
-        #print('frame_data_new[::2] ' + str(np.shape(frame_data_new[::2])))
-        #print('frame_data_new[1::2] ' + str(np.shape(frame_data_new[1::2])))
 
         # set even and odd columns
         frame_data_new[::2] = frame_data_even.astype(np.int16)
@@ -184,55 +153,91 @@ class EpixFrame(object):
         self.super_rows = out
 
         t0.stop()
-        #print('[EpixFrame]: ' + t0.toString())
+
+
+
+
+
+class CpixFrame(PixFrame):
+    '''Convert readout order into an ordered pixel image for Cpix.'''
+    nx = 48
+    ny = 48
+    n_header_words=15
+    n_footer_words = 1
+    npix=nx*ny
+    framesize= n_header_words + ny*nx/2 + n_footer_words
+    n_asics = 1
+
+    def __init__(self):
+        super(CpixFrame,self).__init__(CpixFrame.nx, CpixFrame.ny, CpixFrame.framesize)
+        
+        # store counter id
+        self.counter_id = -1
+
+        # store asic nr
+        self.asic_id = -1
     
 
-    def __set_raw_super_row(self,idx,data):
-        """ Read a super row pf pixel data """
+    def get_n_asics(self):
+        """Abstract method."""
+        return CpixFrame.n_asics
 
-        # offset start with header words
-        offset_start = idx*EpixFrame.len_super_row/2 +  EpixFrame.n_head
-        offset_end = (idx+1)*EpixFrame.len_super_row/2 + EpixFrame.n_head
-        
-        #print('offset_start ', offset_start, ' offset_end ', offset_end)
-        i = 0
-        a = data[offset_start:offset_end]
-        #print('a ', a, ' len(a) ', len(a))
-        #print ('i ', i)
-        for val in data[offset_start:offset_end]:            
-            # bits[31:16]
-            self.super_rows[idx][i] = ( (val >> 16) & 0xFFFF  )
-            i += 1
-            # bits[15:0] 
-            self.super_rows[idx][i] = ( val & 0xFFFF  )
-            i += 1
-            #print(val,' ' , i)
-            #if (i % 10) == 0:
-            #    print('super row ', idx, ' x ', i, ' -> ', self.super_rows[idx][i]  )
+    def get_nx(self):
+        """Abstract method."""
+        return CpixFrame.nx
 
-        
-        
-class EpixIntegratedFrame(EpixFrame):
-    """ Hold integrated EpixFrames"""
-    def __init__(self,data=None,asic=-1):
-        EpixFrame.__init__(self,data,asic)
-        if data != None:
-            self.n = 1
+    def get_ny(self):
+        """Abstract method."""
+        return CpixFrame.ny
+
+    def get_framesize(self):
+        """Abstract method."""
+        return CpixFrame.framesize
+
+    def get_data(self,asic):
+        """Return data for a given asic or the full frame."""
+        n_asics = self.get_n_asics()
+        nx = self.get_nx()
+        ny = self.get_ny()
+        # see if we want all of them
+        if asic < 1:            
+            return self.super_rows
         else:
-            self.n = 0
-    
-    
-    def add_frame(self, frame):
-        """
-        Add the pixel data
+            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
 
-        Note, do not add clusters.
+    def set_data_fast(self,data):
+        """ Organize into raw super rows """
+        #print('set super rows')
+
+        t0 = timer('set_data_fast')
+        t0.start()
         
-        """
-        self.super_rows += frame.super_rows
-        self.n += 1
+        i = 0
+        ny = self.get_ny()
+        nx = self.get_nx()
 
+        # find the pixel data only
+        offset_start = CpixFrame.n_header_words 
 
+        # convert to array!
+        frame_data = np.asarray(data[offset_start:(ny*(nx/2) + offset_start)],dtype=np.uint32)
 
+        # read out the packed pixel adc values
+        frame_data_odd = (frame_data >> 16) & 0xFFFF 
+        frame_data_even  = frame_data & 0xFFFF 
 
-    
+        # new int16 array to hold final result
+        frame_data_new = np.empty(ny*nx, dtype=np.int16)
+
+        # set even and odd columns
+        frame_data_new[::2] = frame_data_even.astype(np.int16)
+        frame_data_new[1::2] = frame_data_odd.astype(np.int16)
+
+        # now reshape into the pixel matrix form
+        out = np.reshape(frame_data_new, (ny,nx))
+
+        # set the member variable
+        self.super_rows = out
+
+        t0.stop()
+
