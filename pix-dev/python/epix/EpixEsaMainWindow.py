@@ -190,7 +190,9 @@ class EpixEsaMainWindow(QMainWindow):
         #if self.debug: 
         print('[EpixEsaMainWindow]:  on_dark_file_select')
         t = self.textbox_dark_file.text()
-        self.emit(SIGNAL('selectDarkFile'), str(t))
+        self.emit(SIGNAL('createDarkFile'), str(t), 10, 'median')
+        print('[EpixEsaMainWindow]:  should have created dark file')
+        self.emit(SIGNAL('readDarkFile'), str(t))
 
     
 
