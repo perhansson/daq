@@ -29,7 +29,7 @@ class DaqWorkerWidget(QWidget):
         #hbox = QHBoxLayout()
 
         vbox = QVBoxLayout()
-        label = QLabel('Epix100a DAQ Control for ESA Beam')
+        label = QLabel('DAQ Control for pix DAQ')
         label2 = QLabel('Note 1: after sufficient dark events please hit "Stop Dark" to start the normal run')
         label3 = QLabel('Note 2: Run numbers are updated automatically.')
         label4 = QLabel('Note 3: Dark and light files are automatically generated unless given.')
@@ -38,9 +38,14 @@ class DaqWorkerWidget(QWidget):
         vbox.addWidget(label3)
         vbox.addWidget(label4)
 
-
-
         hbox_control_run = QHBoxLayout()
+
+        self.combo_select_runtype = QComboBox(self)
+        self.combo_select_runtype.addItem('Beam')
+        self.combo_select_runtype.addItem('sw')
+        self.combo_select_runtype.setCurrentIndex(0)
+        #self.combo_select_runtype.currentIndexChanged['QString'].connect(self.on_select_runtype)
+
         self.b_control_run = QPushButton(self)
         self.b_control_run.setText('New Run')
         self.connect(self.b_control_run,SIGNAL('clicked()'), self.on_control_run)
@@ -51,6 +56,7 @@ class DaqWorkerWidget(QWidget):
         self.b_stop_control_run.setText('Stop Run')
         self.connect(self.b_stop_control_run,SIGNAL('clicked()'), self.on_stop)
 
+        hbox_control_run.addWidget(self.combo_select_runtype)
         hbox_control_run.addWidget(self.b_control_run)
         hbox_control_run.addWidget(self.b_stop_dark_control_run)
         hbox_control_run.addWidget(self.b_stop_control_run)
@@ -85,10 +91,10 @@ class DaqWorkerWidget(QWidget):
         vbox.addLayout(hbox_run)     
         r = self.find_run_number()
         self.textbox_run.setText(str(r))
-        self.textbox_config.setText('not impl.')
-        self.textbox_runstate.setText('not impl.')
-        self.textbox_nevents.setText('not impl.')
-        self.textbox_rate.setText('not impl.')
+        self.textbox_config.setText('-')
+        self.textbox_runstate.setText('-')
+        self.textbox_nevents.setText('-')
+        self.textbox_rate.setText('-')
 
 
         hbox_dark_file= QHBoxLayout()
@@ -156,8 +162,8 @@ class DaqWorkerWidget(QWidget):
         self.textbox_light_file.setText(fname)
         
         # send the worker the instructions on the run
-        args = {'filepath':str(self.textbox_light_file.text()),'rate':'Beam','count':1000000}
-        print('start run with opetions')
+        args = {'filepath':str(self.textbox_light_file.text()),'rate':self.get_runtype(),'count':1000000}
+        print('start run with options')
         print args
         self.emit(SIGNAL('start_run'), args)
 
@@ -173,9 +179,8 @@ class DaqWorkerWidget(QWidget):
         # stop the run
         self.emit(SIGNAL('stop_run'),'')
 
-        # start a new run with default arguments = beam
+        # start a new run
         self.on_start()
-    
 
     def on_configure(self):
         """Configure the DAQ."""
@@ -228,6 +233,9 @@ class DaqWorkerWidget(QWidget):
         # FIX THIS!
     
         
+    def get_runtype(self, type_str):
+        """Return the current run type string from the combo menu."""
+        return str(self.combo_select_runtype.currentText())
 
     def on_get_dark(self, ignoreTextField=True):
         """Generate a dark file."""
@@ -245,8 +253,32 @@ class DaqWorkerWidget(QWidget):
         self.textbox_dark_file.setText(fname)
         
         # send the worker the instructions on the run
-        args = {'filepath':fname, 'rate':'Dark', 'count':10}
+        count = 10
+        runtype = None
+        if self.get_runtype() == 'Beam':
+            runtype = 'Dark'
+        elif self.get_runtype() == 'sw':
+            runtype = 'sw'
+        args = {'filepath':fname, 'rate':runtype, 'count':count}
         self.emit(SIGNAL('start_run'),args)
+        
+        # wait until we are running
+        while 'Running' in self.textbox_runstate.text():
+            print('wait to start')
+            time.sleep(0.5)
+
+        print('start to check count')
+        while True:
+            s = self.textbox_runstate.text()
+            print('check if dark is done (runstate ' + self.textbox_runstate.text() + ' count ' + str(int(self.textbox_nevents)))
+            if int(self.textbox_nevents) >= count:
+                print('reached needed count')
+                break
+            time.sleep(1)
+
+        # stop dark 
+        self.on_control_dark_stop()
+    
     
 
     def update_stats(self,stats):
@@ -263,6 +295,7 @@ class DaqWorkerWidget(QWidget):
         self.connect(self, SIGNAL('start_run'), daq_worker.start_run)
         self.connect(self, SIGNAL('stop_run'), daq_worker.stop_run)
         self.connect(daq_worker, SIGNAL('daq_stats'), self.update_stats)
+        self.connect(daq_worker, SIGNAL('stopped_run'), self.update_stats)
 
 
 

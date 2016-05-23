@@ -132,12 +132,18 @@ class DaqWorker(QThread):
         pythonDaq.daqSetRunParameters(rate_str, count)
 
         # start the run
-        self.set_run_state('Evr Running')
+        if rate_str == 'Beam':
+            self.set_run_state('Evr Running')
+        elif rate_str == 'sw':
+            self.set_run_state('swRunning')
+        else:
+            raise NotImplementedError('this run string ' + rate_str + ' is invalid')
     
     def stop_run(self):
         """Stop a run. """                
         self.set_run_state('Stopped')        
         self.close_file()
+        self.emit('stopped_run')
     
     def open_file(self,filepath):
         """Open a data file."""
