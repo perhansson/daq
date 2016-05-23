@@ -9,8 +9,8 @@ import pythonDaq
 
 class EpixShMemReader(EpixReader):
     """Read epix data from shared memory"""    
-    def __init__(self, parent=None):
-        EpixReader.__init__(self, parent)
+    def __init__(self, framesize, parent=None):
+        EpixReader.__init__(self, frame_size, parent)
 
         # timer list
         self.sh_timers = []
@@ -57,7 +57,7 @@ class EpixShMemReader(EpixReader):
             elif data[0] > 0:
                 if EpixReader.debug: print('Read n ', n, ' found ', data[0], ' bytes with type ', data[1])
                 if data[1] == 0:
-                    if data[0] == EpixFrame.framesize:
+                    if data[0] == self.framesize:
 
                         # send the data
                         #self.send_data( data[2] )
