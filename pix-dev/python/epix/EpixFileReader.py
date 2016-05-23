@@ -7,8 +7,8 @@ from EpixReader import *
 
 class EpixFileReader(EpixReader):
     """ Read epix data from a file"""
-    def __init__(self,filename, parent=None):
-        EpixReader.__init__(self, parent)
+    def __init__(self,filename, framesize, parent=None):
+        EpixReader.__init__(self, framesize, parent)
         self.filename = filename
         # start the thread
         self.start()
@@ -59,7 +59,7 @@ class EpixFileReader(EpixReader):
                     
 
                     #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
-                    if fs == EpixFrame.framesize:
+                    if fs == self.framesize:
                         if EpixReader.debug: print (n, ' got frame with ', fs, ' words')
 
                         # send the data
