@@ -134,7 +134,7 @@ class DaqWorker(QThread):
         # start the run
         if rate_str == 'Beam':
             self.set_run_state('Evr Running')
-        elif rate_str == 'sw':
+        elif 'Hz' in rate_str:
             self.set_run_state('swRunning')
         else:
             raise NotImplementedError('this run string ' + rate_str + ' is invalid')

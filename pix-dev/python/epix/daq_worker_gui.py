@@ -42,7 +42,7 @@ class DaqWorkerWidget(QWidget):
 
         self.combo_select_runtype = QComboBox(self)
         self.combo_select_runtype.addItem('Beam')
-        self.combo_select_runtype.addItem('sw')
+        self.combo_select_runtype.addItem('1Hz')
         self.combo_select_runtype.setCurrentIndex(0)
         #self.combo_select_runtype.currentIndexChanged['QString'].connect(self.on_select_runtype)
 
@@ -257,8 +257,11 @@ class DaqWorkerWidget(QWidget):
         runtype = None
         if self.get_runtype() == 'Beam':
             runtype = 'Dark'
-        elif self.get_runtype() == 'sw':
-            runtype = 'sw'
+        elif 'Hz' in self.get_runtype():
+            runtype = '1Hz'
+        else:
+            raise NotImplementedError('this run type \"' + self.get_runtype() + '\" is invalid')
+        
         args = {'filepath':fname, 'rate':runtype, 'count':count}
         self.emit(SIGNAL('start_run'),args)
         
