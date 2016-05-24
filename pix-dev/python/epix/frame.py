@@ -177,6 +177,11 @@ class CpixFrame(PixFrame):
         # store asic nr
         self.asic_id = -1
     
+        # used to store corrected values, see correct function
+        self.nx_offset = 16
+        nx = self.get_nx()
+        self.doff = np.zeros( np.shape(self.super_rows[:,nx-self.nx_offset:]) )
+
 
     def get_n_asics(self):
         """Abstract method."""
@@ -211,7 +216,7 @@ class CpixFrame(PixFrame):
 
         t0 = timer('set_data_fast')
         t0.start()
-        
+
         i = 0
         ny = self.get_ny()
         nx = self.get_nx()
@@ -239,5 +244,29 @@ class CpixFrame(PixFrame):
         # set the member variable
         self.super_rows = out
 
-        t0.stop()
+        # apply correction
+        self.correct_frame()
 
+        t0.stop()
+    
+
+    def correct_frame(self):
+        """Shift last self.nx_offset columns down one row."""
+
+        # NOTE: row 0 will just get zeroes in the last self.nx_offset columns
+
+        ny = self.get_ny()
+        nx = self.get_nx()
+
+        # fill/reset last self.nx_offset columns with zeroes
+        self.doff.fill(0)
+
+        # number of offsets in rows
+        r = 1
+
+        # assign the coulmns one row down
+        self.doff[r:,:] = self.super_rows[:ny-r,nx-self.nx_offset:]
+
+        # now assign back to the original object
+        self.super_rows[:,nx-self.nx_offset:] = self.doff
+        
