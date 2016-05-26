@@ -6,10 +6,9 @@ import sys
 import argparse
 from PyQt4.QtGui import *
 from PyQt4.QtCore import *
-from DarkReader import DarkReader
-from EpixReader import EpixReader
-from EpixFileReader import EpixFileReader
-from EpixShMemReader import EpixShMemReader
+from DarkReader import DarkFileReader
+from PixFileReader import FileReader
+from PixShMemReader import ShMemReader
 from EpixEsaMainWindow import *
 from daq_worker import DaqWorker
 from frame_worker import FrameWorkerController
@@ -43,32 +42,32 @@ def main():
         frame = camera_frames.CpixFrame()
 
     # create the data reader
-    epixReader = None
+    reader = None
     if args.light:
-        epixReader = EpixFileReader(args.light, frame.get_framesize())
+        reader = FileReader(args.light, frame.get_framesize())
         # use a standard hold-off time if not given
         if args.update == 0:
             args.update = 200
     else:        
-        epixReader = EpixShMemReader(frame.get_framesize())
+        reader = ShMemReader(frame.get_framesize())
 
-    # create the dark (file) reader
-    darkReader = DarkReader(args.camera)
+    # create the dark file reader
+    darkReader = DarkFileReader(args.camera)
 
     # set a sleep timer in sec's between frame reads
-    epixReader.set_frame_sleep(args.update)
+    reader.set_frame_sleep(args.update)
 
     # set debug flag for the reader
-    EpixReader.debug = args.debug
+    reader.debug = args.debug
 
     # initialize the state (need to set the GUI status...)
-    epixReader.set_state('Stopped')
+    reader.set_state('Stopped')
 
     #### create the data frame processor
     frameProcessor = FrameWorkerController('frame_processor', frame)
 
     # connect the data frame from reader to processor
-    epixReader.connect(epixReader, SIGNAL('data_frame'), frameProcessor.worker.process)
+    reader.connect(reader, SIGNAL('data_frame'), frameProcessor.worker.process)
 
     # read only selected asic
     frameProcessor.worker.select_asic( args.asic )
@@ -87,10 +86,10 @@ def main():
     form.set_integration( args.integration )
     
     # Connect reader to the GUI
-    form.connect(epixReader,SIGNAL('newState'),form.newState)
+    form.connect(reader,SIGNAL('newState'),form.newState)
 
     # Connect GUI to the reader
-    form.connect(form, SIGNAL('acqState'),epixReader.change_state)
+    form.connect(form, SIGNAL('acqState'),reader.change_state)
     form.connect(form, SIGNAL('createDarkFile'),darkReader.create_dark_file)
     form.connect(form, SIGNAL('readDarkFile'), frameProcessor.worker.read_dark_file)    
 
@@ -112,8 +111,8 @@ def main():
     if args.dark != None:
         form.textbox_dark_file.setText( args.dark)
         form.on_dark_file_select()
-        #epixReader.add_dark_file( args.dark, 10, 'median' )
-        #epixReader.do_dark_frame_subtraction = True
+        #reader.add_dark_file( args.dark, 10, 'median' )
+        #reader.do_dark_frame_subtraction = True
 
 
     # show the form
@@ -122,7 +121,7 @@ def main():
     # start the acquizition of frame (should go into GUI button I guess)
 
     if args.go:
-        epixReader.set_state('Running')
+        reader.set_state('Running')
 
 
     print ('[run_epix_gui]: main thread ' , app.instance().thread())

@@ -6,7 +6,6 @@ Classes to handle data formats for different cameras.
 
 import time
 import numpy as np
-from epix import Epix100a, fmap
 from pix_utils import FrameTimer as timer
 
 
