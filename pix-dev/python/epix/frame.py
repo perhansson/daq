@@ -166,6 +166,7 @@ class CpixFrame(PixFrame):
     npix=nx*ny
     framesize= n_header_words + ny*nx/2 + n_footer_words
     n_asics = 1
+    offset_frame_info_word = 14
 
     def __init__(self):
         super(CpixFrame,self).__init__(CpixFrame.nx, CpixFrame.ny, CpixFrame.framesize)
@@ -173,13 +174,16 @@ class CpixFrame(PixFrame):
         # store counter id
         self.counter_id = -1
 
-        # store asic nr
-        self.asic_id = -1
+        # store asic id
+        self.asic = -1
     
         # used to store corrected values, see correct function
         self.nx_offset = 16
         nx = self.get_nx()
         self.doff = np.zeros( np.shape(self.super_rows[:,nx-self.nx_offset:]) )
+
+        # counter type
+        self.counter_type = -1
 
 
     def get_n_asics(self):
@@ -209,6 +213,15 @@ class CpixFrame(PixFrame):
         else:
             print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
 
+    def __get_counter_type_from_data(self, data):
+        """Extract counter type from the data."""
+        return (data[CpixFrame.offset_frame_info_word] >> 4) & 0x00000001         
+
+    def __get_asic_from_data(self, data):
+        """Extract ASIC ID from the data."""
+        return data[CpixFrame.offset_frame_info_word] & 0x0000000F     
+
+
     def set_data_fast(self,data):
         """ Organize into raw super rows """
         #print('set super rows')
@@ -219,6 +232,19 @@ class CpixFrame(PixFrame):
         i = 0
         ny = self.get_ny()
         nx = self.get_nx()
+
+        # find the counter type
+        self.counter_type = self.__get_counter_type_from_data(data)
+
+        # find the asic
+        self.asic = self.__get_asic_from_data(data)
+
+        if self.counter_type != 0 and self.counter_type != 1:
+            raise RuntimeError('counter type ' + str(self.counter_type) + ' is undefined.(asic ' + self.asic + ' from  word ' + str(data[offset_frame_info_word]) + ')')
+
+        if self.asic < 0 or self.asic >=4:
+            raise RuntimeError('asic ' + str(self.asic) + ' is undefined. ( word ' + str(data[offset_frame_info_word]) + ' counter ' + str(self.counter_type) + ')')
+
 
         # find the pixel data only
         offset_start = CpixFrame.n_header_words 
@@ -269,3 +295,7 @@ class CpixFrame(PixFrame):
         # now assign back to the original object
         self.super_rows[:,nx-self.nx_offset:] = self.doff
         
+
+    def get_counter_type(self):
+        """Return counter type for the current frame."""
+        return self.counter_type

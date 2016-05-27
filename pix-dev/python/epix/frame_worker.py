@@ -12,7 +12,6 @@ from pix_utils import toint, dropbadframes, FrameAnalysisTypes, FrameTimer, get_
 printThreadInfo = False
 
 
-
 class FrameWorker(QObject):
     """Process frames."""
 
@@ -130,20 +129,10 @@ class FrameWorker(QObject):
 
             t_dark = FrameTimer('analysis')
             t_dark.start()
-            #self.print_debug('subtract dark frame', True)
             if self.dark_frame_mean == None:
                 self.print_debug('no dark frame is available!', True)
             else:
-                # subtract pixel by pixel
-                #np.savez('dark_worker_frame_' + str(frame_id) + '.npz',dmean=self.dark_frame_mean)
-                #self.print_debug('dark ' + str(toint(self.dark_frame_mean)) , True)
-                #self.print_debug('before ' + str(self.frame.super_rows) , True)
-                #np.savez('loght_worker_frame_' + str(frame_id) + '.npz',frame=self.frame.super_rows)
-                #print('dark:')
-                #print(self.dark_frame_mean)
                 self.frame.super_rows -= toint( self.dark_frame_mean )
-                #self.print_debug('subtraction done', True)
-                #self.print_debug('after ' + str(self.frame.super_rows) , True)
             t_dark.stop()
             self.print_debug(t_dark.toString())
 
@@ -168,7 +157,6 @@ class FrameWorker(QObject):
             self.n_busy += 1            
         else:
             self.print_debug('sending frame', force=False)
-            #self.emit(SIGNAL("newDataFrame"),self.frame)
             self.emit_data()
             self.n_sent += 1
         
@@ -237,6 +225,67 @@ class FrameWorkerController(QObject):
         super(FrameWorkerController, self).__init__()
         self.thread = MyQThread()
         self.thread.start()
-        self.worker = FrameWorker(name, frame)
+        self.worker = self.init_frame_worker(name, frame)
         self.worker.moveToThread( self.thread )
+
+    def init_frame_worker(self, name, frame):
+        print('init frame_worker framecontroller')
+        return FrameWorker(name, frame)
+
+
+
+class CpixFrameWorker(FrameWorker):
+    """Process Cpix frames."""
+    
+    def __init__(self,name, frame):
+        FrameWorker.__init__(self,name, frame)
+        
+    def emit_data(self):
+        """ Emit data
+        """
+        
+        self.print_debug ('emit_data')
+
+        t0 = FrameTimer('emit_data')
+        t0.start()
+
+        # check that there is a data to be drawn
+        if self.frame != None:
+            
+            counter_type = self.frame.get_counter_type()
+            data = self.frame.get_data(self.selected_asic)
+
+            self.emit(SIGNAL('new_data'), self.frame_id, data)
+            
+            #print('[frame_worker]: counter_type ' + str(counter_type))
+
+            if counter_type == 1:
+                self.emit(SIGNAL('new_data_A'), self.frame_id, data)
+            elif counter_type == 0:
+                self.emit(SIGNAL('new_data_B'), self.frame_id, data)
+            else:
+                raise RuntimeError('this counter option ' + counter_type + ' is not valid')
+
+            self.emit(SIGNAL('new_data_diff'), self.frame_id, counter_type, data)
+            
+            self.emit(SIGNAL('new_clusters'), self.frame_id, self.frame.clusters)
+
+            self.emit(SIGNAL('cluster_count'), self.frame_id, len(self.frame.clusters))
+
+        t0.stop()
+
+        self.print_debug(t0.toString(),force=False)
+
+
+
+class CpixFrameWorkerController(FrameWorkerController):
+    """Cpix controller class."""
+    def __init__(self, name, frame):
+        FrameWorkerController.__init__(self, name, frame)
+        print('init cpixframecontroller')
+    
+    def init_frame_worker(self, name, frame):
+        print('init frame_worker cpixframecontroller')
+        return CpixFrameWorker(name, frame)
+
 
