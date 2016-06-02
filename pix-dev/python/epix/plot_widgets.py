@@ -430,7 +430,7 @@ class ImageWorker(PlotWorker):
     
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
-        print(self.name + ' new_data')
+        self.print_thread(self.name + ' new_data')
         #print('ImageWorker: process frame and send shape ' + str(np.shape(data)))
         if self.d == None:
             self.d = data
@@ -563,7 +563,7 @@ class FrameDiffImageWorker(ImageWorker):
     
     def new_data(self, frame_id, frame_type, data):
         """Process the data and send to GUI when done."""
-        #print(self.name + ' new_data frame_type ' +str(frame_type))
+        self.print_thread(self.name + ' new_data frame_type ' +str(frame_type))
         #print(self.n_frames)
         #print(self.frames)
         

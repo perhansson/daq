@@ -23,7 +23,6 @@ def get_args():
     parser.add_argument('--asic','-a', type=int, default=0, help='ASIC to read data from (0-3, -1 for all).')
     parser.add_argument('--update','-u', type=int, default=0, help='Time in in milliseconds to sleep between reading a frame.')
     parser.add_argument('--integration','-i', default=1, help='Number of frames to integrate.')
-    parser.add_argument('--camera', required=True, choices=['epix100a','cpix'])
     args = parser.parse_args()
     print( args )
     return args
@@ -35,11 +34,8 @@ def main():
     app = QApplication(sys.argv)
 
     # get the frame type from camera arg
-    frame = None
-    if args.camera == 'epix100a':
-        frame = camera_frames.EpixFrame()
-    elif args.camera == 'cpix':
-        frame = camera_frames.CpixFrame()
+    camera = 'epix100a'
+    frame = camera_frames.EpixFrame()
 
     # create the data reader
     reader = None
@@ -52,7 +48,7 @@ def main():
         reader = ShMemReader(frame.get_framesize())
 
     # create the dark file reader
-    darkReader = DarkFileReader(args.camera)
+    darkReader = DarkFileReader(camera)
 
     # set a sleep timer in sec's between frame reads
     reader.set_frame_sleep(args.update)
@@ -102,11 +98,9 @@ def main():
 
     # open the control GUI and connection to the DAQ
     # if we are reading from a file then don't use the daq worker
-    daq_worker  = None
     if not args.light:
-        daq_worker  = DaqWorker()    
-        form.connect_daq_worker_gui( daq_worker )
-            
+        form.connect_daq_worker_gui( DaqWorker() )
+    
     # add a dark frame if supplied
     if args.dark != None:
         form.textbox_dark_file.setText( args.dark)

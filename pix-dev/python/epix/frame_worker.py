@@ -59,14 +59,14 @@ class FrameWorker(QObject):
         """Read the dark file and extract the mean."""
 
         dark_filename = os.path.splitext( filename )[0] + '-summary.npz'
-        self.print_debug('read dark file from ' + dark_filename)
+        print('read dark file from ' + dark_filename)
         if not os.path.isfile( dark_filename ):
-            self.print_debug('file ' + dark_filename + ' is not a file?!')
+            print('file ' + dark_filename + ' is not a file?!')
         else:
             # load the file
             dark_file = np.load(dark_filename)
-            self.print_debug('loaded dark file with median frame')
-            self.print_debug(str(dark_file['dark_frame_median']))
+            print('loaded dark file with median frame')
+            print(str(dark_file['dark_frame_median']))
             self.set_dark_mean(dark_file['dark_frame_median'])
 
     def select_asic(self, asic):

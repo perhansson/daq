@@ -3,13 +3,16 @@ This file contains a reader of ePix data from shared memory using generic daq to
 """
 import os
 import sys
+import time
+from PyQt4.QtCore import QThread
 from PixReader import BaseReader
+from pix_utils import FrameTimer, get_timer_data
 #sys.path.append(os.path.join(os.environ.get('DAQ'),python))
 import pythonDaq
 
 class ShMemReader(BaseReader):
     """Read epix data from shared memory"""    
-    def __init__(self, framesize, parent=None):
+    def __init__(self, frame_size, parent=None):
         BaseReader.__init__(self, frame_size, parent)
 
         # timer list

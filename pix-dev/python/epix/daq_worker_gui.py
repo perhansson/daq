@@ -3,6 +3,7 @@
 import sys
 import os
 import datetime
+import time
 import re
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
@@ -17,12 +18,13 @@ class DaqWorkerWidget(QWidget):
         QWidget.__init__(self,parent)
         self.set_geometry()
         self.create_control()        
+        self.daq_worker = None
         if show:
             self.show()
     
     def set_geometry(self):
         self.setGeometry(10,10,500,300)
-        self.setWindowTitle('Esa Daq Control')
+        self.setWindowTitle('Pix Daq Control')
 
     def create_control(self):
 
@@ -30,21 +32,35 @@ class DaqWorkerWidget(QWidget):
 
         vbox = QVBoxLayout()
         label = QLabel('DAQ Control for pix DAQ')
-        label2 = QLabel('Note 1: after sufficient dark events please hit "Stop Dark" to start the normal run')
-        label3 = QLabel('Note 2: Run numbers are updated automatically.')
-        label4 = QLabel('Note 3: Dark and light files are automatically generated unless given.')
+        label3 = QLabel('Run numbers are updated automatically.')
+        label4 = QLabel('Dark and light files are automatically generated unless given.')
+        label2 = QLabel('Note: you can hit "Stop Dark" if you want shorter than default (10) dark runs.')
         vbox.addWidget(label)
-        vbox.addWidget(label2)
         vbox.addWidget(label3)
         vbox.addWidget(label4)
+        vbox.addWidget(label2)
 
-        hbox_control_run = QHBoxLayout()
 
+        hbox_control_run_params = QHBoxLayout()
         self.combo_select_runtype = QComboBox(self)
         self.combo_select_runtype.addItem('Beam')
         self.combo_select_runtype.addItem('1Hz')
         self.combo_select_runtype.setCurrentIndex(0)
         #self.combo_select_runtype.currentIndexChanged['QString'].connect(self.on_select_runtype)
+        self.combo_select_trigtype = QComboBox(self)
+        self.combo_select_trigtype.addItem('Evr Running')
+        self.combo_select_trigtype.addItem('swRunning')
+        self.combo_select_trigtype.setCurrentIndex(0)
+        #self.combo_select_trigtype.currentIndexChanged['QString'].connect(self.on_select_trigtype)
+
+        hbox_control_run_params.addWidget(QLabel('Run configuration:'))
+        hbox_control_run_params.addWidget(self.combo_select_runtype)
+        hbox_control_run_params.addWidget(self.combo_select_trigtype)
+
+        vbox.addLayout(hbox_control_run_params)
+
+        hbox_control_run = QHBoxLayout()
+
 
         self.b_control_run = QPushButton(self)
         self.b_control_run.setText('New Run')
@@ -56,7 +72,7 @@ class DaqWorkerWidget(QWidget):
         self.b_stop_control_run.setText('Stop Run')
         self.connect(self.b_stop_control_run,SIGNAL('clicked()'), self.on_stop)
 
-        hbox_control_run.addWidget(self.combo_select_runtype)
+        hbox_control_run.addWidget(QLabel('Run control:'))
         hbox_control_run.addWidget(self.b_control_run)
         hbox_control_run.addWidget(self.b_stop_dark_control_run)
         hbox_control_run.addWidget(self.b_stop_control_run)
@@ -162,7 +178,7 @@ class DaqWorkerWidget(QWidget):
         self.textbox_light_file.setText(fname)
         
         # send the worker the instructions on the run
-        args = {'filepath':str(self.textbox_light_file.text()),'rate':self.get_runtype(),'count':1000000}
+        args = {'filepath':str(self.textbox_light_file.text()),'rate':self.get_runtype(), 'trigtype':self.get_trigtype(), 'count':1000000}
         print('start run with options')
         print args
         self.emit(SIGNAL('start_run'), args)
@@ -233,9 +249,13 @@ class DaqWorkerWidget(QWidget):
         # FIX THIS!
     
         
-    def get_runtype(self, type_str):
+    def get_runtype(self):
         """Return the current run type string from the combo menu."""
         return str(self.combo_select_runtype.currentText())
+
+    def get_trigtype(self):
+        """Return the current run type string from the combo menu."""
+        return str(self.combo_select_trigtype.currentText())
 
     def on_get_dark(self, ignoreTextField=True):
         """Generate a dark file."""
@@ -262,22 +282,24 @@ class DaqWorkerWidget(QWidget):
         else:
             raise NotImplementedError('this run type \"' + self.get_runtype() + '\" is invalid')
         
-        args = {'filepath':fname, 'rate':runtype, 'count':count}
+        args = {'filepath':fname, 'rate':runtype, 'trigtype':self.get_trigtype(), 'count':count}
         self.emit(SIGNAL('start_run'),args)
         
         # wait until we are running
-        while 'Running' in self.textbox_runstate.text():
+        while 'Running' not in str(self.textbox_runstate.text()):
             print('wait to start')
             time.sleep(0.5)
-
+            QApplication.processEvents()
+        
         print('start to check count')
         while True:
             s = self.textbox_runstate.text()
-            print('check if dark is done (runstate ' + self.textbox_runstate.text() + ' count ' + str(int(self.textbox_nevents)))
-            if int(self.textbox_nevents) >= count:
+            print('Run state ' + self.textbox_runstate.text() + ' count ' + str(int(self.textbox_nevents.text())))
+            if int(self.textbox_nevents.text()) >= count:
                 print('reached needed count')
                 break
-            time.sleep(1)
+            QApplication.processEvents()
+            time.sleep(0.5)
 
         # stop dark 
         self.on_control_dark_stop()
@@ -293,21 +315,43 @@ class DaqWorkerWidget(QWidget):
             self.textbox_rate.setText('{0:.1f} Hz'.format(stats[2]))
     
 
-    def connect_workers(self, daq_worker):        
-        self.connect(self, SIGNAL('configure'), daq_worker.configure)
-        self.connect(self, SIGNAL('start_run'), daq_worker.start_run)
-        self.connect(self, SIGNAL('stop_run'), daq_worker.stop_run)
-        self.connect(daq_worker, SIGNAL('daq_stats'), self.update_stats)
-        self.connect(daq_worker, SIGNAL('stopped_run'), self.update_stats)
+    def connect_workers(self):
+        
+        self.connect(self, SIGNAL('configure'), self.daq_worker.configure)
+        self.connect(self, SIGNAL('start_run'), self.daq_worker.start_run)
+        self.connect(self, SIGNAL('stop_run'), self.daq_worker.stop_run)
+        self.connect(self.daq_worker, SIGNAL('daq_stats'), self.update_stats)
 
+    def closeEvent(self, event):
+        """Close the GUI."""
+        can_exit = True
+        self.on_quit()
+        if can_exit:
+            event.accept()
+        else:
+            event.ignore()
 
+    def on_quit(self):
+        """Quit the window."""
+        print('[daq_worker_gui]: on_quit')
+        #if self.daq_worker != None:
+        #    self.daq_worker.quit_this()
+        self.close()
+    
+
+    def quit_worker_thread(self):
+        """Kill the worker thread."""
+        if self.daq_worker != None:
+            self.daq_worker.quit_thread()
+    
 
 def main():
 
     app = QApplication(sys.argv)
     widget  = DaqWorkerWidget()
-    daq_worker = DaqWorker()
-    widget.connect_workers( daq_worker )
+    #daq_worker = DaqWorker()
+    widget.daq_worker = DaqWorker()
+    widget.connect_workers()
     widget.show()
     sys.exit( app.exec_() )
     

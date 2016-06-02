@@ -64,7 +64,9 @@ class MainWindow(QMainWindow):
         
     def connect_daq_worker_gui(self, daq_worker):        
         """Connect the DAQ worker widget to it's worker."""
-        self.daq_worker_widget.connect_workers( daq_worker )
+        if self.daq_worker_widget.daq_worker == None:
+            self.daq_worker_widget.daq_worker = daq_worker            
+        self.daq_worker_widget.connect_workers()
     
     def on_about(self):
         """Abstract method."""
@@ -232,6 +234,9 @@ class MainWindow(QMainWindow):
         #if self.debug: 
         print('[MainWindow]:  on_dark_file_select')
         t = self.textbox_dark_file.text()
+        if t == '':
+            print('[MainWindow]:  no dark file selected')
+            return
         self.emit(SIGNAL('createDarkFile'), str(t), 10, 'median')
         print('[MainWindow]:  should have created dark file')
         self.emit(SIGNAL('readDarkFile'), str(t))
@@ -251,8 +256,10 @@ class MainWindow(QMainWindow):
 
     def on_quit(self):
         """Quit the main window."""
-        print('[MainWindow]: on_quit')
+        print('[MainWindow]: on_quit')        
         self.daq_worker_widget.close()
+        print('[MainWindow]: kill daq_worker thread')        
+        self.daq_worker_widget.quit_worker_thread()            
         print('[MainWindow]: quit ' + str(len(self.plot_widgets)) + ' widgets')
         for w in self.plot_widgets:
             w[0].close()
