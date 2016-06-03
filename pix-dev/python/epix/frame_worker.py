@@ -23,6 +23,8 @@ class FrameWorker(QObject):
         self.drop_bad_frames = False
         self.drop_bad_frames_2 = False
         self.do_dark_subtraction = True
+        self.do_drop_max_pixels = True
+        self.drop_max_pixels_threshold = 100
         self.n_sent = 0
         self.n_busy = 0
         self.n_process = 0
@@ -135,6 +137,16 @@ class FrameWorker(QObject):
                 self.frame.super_rows -= toint( self.dark_frame_mean )
             t_dark.stop()
             self.print_debug(t_dark.toString())
+
+            # option to drop frames with too many pixels firing.
+            if self.do_drop_max_pixels:
+                frame_tmp = (self.frame.super_rows > self.drop_max_pixels_threshold)
+                tmpx, tmpy = np.nonzero( frame_tmp )
+                # tmpx and tmpy is same length
+                if len(tmpy) > 10000:
+                    self.print_debug('DROPPED MAX PIXELS frame' + str(tmpy), True)
+                    drop_frame = True
+            
 
         #self.frame.super_rows -= toint(self.dark_frame_mean)
         
