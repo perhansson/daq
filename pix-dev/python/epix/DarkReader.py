@@ -31,7 +31,7 @@ class DarkFileReader(object):
         self.reader.close()
     
 
-    def create_dark_file(self, filename, maxFrames=10, alg='median'):
+    def create_dark_file(self, filename, maxFrames=100, alg='median'):
         """ Process dark file """
         print('[DarkReader]: Adding dark file from', filename)
         dark_frame_sum = None

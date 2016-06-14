@@ -237,7 +237,7 @@ class MainWindow(QMainWindow):
         if t == '':
             print('[MainWindow]:  no dark file selected')
             return
-        self.emit(SIGNAL('createDarkFile'), str(t), 10, 'median')
+        self.emit(SIGNAL('createDarkFile'), str(t), 100, 'median')
         print('[MainWindow]:  should have created dark file')
         self.emit(SIGNAL('readDarkFile'), str(t))
 

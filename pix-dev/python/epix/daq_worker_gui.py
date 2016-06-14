@@ -273,7 +273,7 @@ class DaqWorkerWidget(QWidget):
         self.textbox_dark_file.setText(fname)
         
         # send the worker the instructions on the run
-        count = 10
+        count = 100
         runtype = None
         if self.get_runtype() == 'Beam':
             runtype = 'Dark'
