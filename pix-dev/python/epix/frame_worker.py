@@ -144,7 +144,7 @@ class FrameWorker(QObject):
                 tmpx, tmpy = np.nonzero( frame_tmp )
                 # tmpx and tmpy is same length
                 if len(tmpy) > 10000:
-                    self.print_debug('DROPPED MAX PIXELS frame' + str(tmpy), True)
+                    self.print_debug('DROPPED MAX PIXELS frame (' + str(len(tmpy)) + ')', True)
                     drop_frame = True
             
 
