@@ -120,17 +120,12 @@ class EpixFrame(PixFrame):
         if rotations > 0:
             asic_map_rot = np.rot90(self.asic_map,rotations)
             xr,yr = np.where(asic_map_rot == asic)
-            print ('rotations ' + str(rotations))
-            print ('xr,yr = ' + str(xr) + ',' + str(yr))
             sel_asic = self.asic_map[xr[0]][yr[0]]
-            print("ROTATION asic " + str(asic) + ' -> ' + str(sel_asic))
             if rotations%2 != 0:
-                print("flip nx,ny" + str(nx) + ',' + str(ny))
                 ny_new = nx
                 nx = ny
                 ny = ny_new
 
-        print("nx,ny" + str(nx) + ',' + str(ny))
         if sel_asic == 0:            
             return self.super_rows[ny/2: , nx/2:]
         elif sel_asic == 1:            
