@@ -23,15 +23,19 @@ class FrameWorker(QObject):
         self.drop_bad_frames = False
         self.drop_bad_frames_2 = False
         self.do_dark_subtraction = True
-        self.do_drop_max_pixels = True
+        self.do_bad_pixel_map_subtraction = True
         self.drop_max_pixels_threshold = 100
+        self.drop_max_pixels_count = 1000
+        self.flip_frame = 1
         self.n_sent = 0
+        self.n_drop = 0
         self.n_busy = 0
         self.n_process = 0
         self.__t0_ana_sum = 0
         self.__n_ana_sum = 0
         self.frame = frame
         self.dark_frame_mean = None
+        self.bad_pixel_map = None
         self.selected_asic = -1
         self.process_timers = []
         self.form_busy = False
@@ -57,6 +61,9 @@ class FrameWorker(QObject):
     def set_dark_mean(self, dark_frame_mean):
         self.dark_frame_mean = dark_frame_mean
 
+    def set_bad_pixel_map(self, bad_pixel_map):
+        self.bad_pixel_map = bad_pixel_map
+
     def read_dark_file(self,filename):
         """Read the dark file and extract the mean."""
 
@@ -70,11 +77,19 @@ class FrameWorker(QObject):
             print('loaded dark file with median frame')
             print(str(dark_file['dark_frame_median']))
             self.set_dark_mean(dark_file['dark_frame_median'])
-
+            if 'dark_frame_bad_pixel_map' in dark_file:
+                print('loaded dark file with bad pixel map')
+                print(str(dark_file['dark_frame_bad_pixel_map']))
+                self.set_bad_pixel_map(dark_file['dark_frame_bad_pixel_map'])
+    
     def select_asic(self, asic):
         """Select which asic to read data from."""
         self.print_debug('select asic ' + str(asic))
         self.selected_asic = asic
+
+    def set_flip_frames(self,n_rotations):
+        """Set number of pi/2 rotations of the frame."""
+        self.flip_frame = n_rotations
 
     def select_analysis(self,a):
         """ Set analysis to be applied to frames."""
@@ -100,7 +115,6 @@ class FrameWorker(QObject):
         t1 = FrameTimer('epixFrameFill frame_id ' + str(frame_id))
         t1.start()
         self.frame.reset()
-        #self.frame.set_data( data, self.selected_asic )
         self.frame.set_data_fast( data )
         self.frame_id = frame_id
         t1.stop()
@@ -115,6 +129,7 @@ class FrameWorker(QObject):
             tmp, dropped = dropbadframes(tmp)
             if tmp.size == 0:
                 self.print_debug('WARNING dropped frame')
+                self.n_drop += 1
                 return
             else:
                 self.print_debug('not a bad frame')
@@ -125,11 +140,13 @@ class FrameWorker(QObject):
             s = np.sum(np.abs(np.diff(np.median(self.frame.super_rows, axis=0))))
             print('s = ' + str(s))
             if s > 10000:
-                drop_frame = True
-
+                self.print_debug(' dropped frame s = ' + str(s))
+                self.n_drop += 1
+                return
+        
         if self.do_dark_subtraction:
 
-            t_dark = FrameTimer('analysis')
+            t_dark = FrameTimer('dark subtraction')
             t_dark.start()
             if self.dark_frame_mean == None:
                 self.print_debug('no dark frame is available!', True)
@@ -139,16 +156,31 @@ class FrameWorker(QObject):
             self.print_debug(t_dark.toString())
 
             # option to drop frames with too many pixels firing.
-            if self.do_drop_max_pixels:
+            if self.drop_max_pixels_count > 0:
                 frame_tmp = (self.frame.super_rows > self.drop_max_pixels_threshold)
                 tmpx, tmpy = np.nonzero( frame_tmp )
                 # tmpx and tmpy is same length
-                if len(tmpy) > 10000:
-                    self.print_debug('DROPPED MAX PIXELS frame (' + str(len(tmpy)) + ')', True)
-                    drop_frame = True
-            
+                if len(tmpy) > self.drop_max_pixels_count:
+                    self.print_debug('DROPPED MAX PIXELS frame (' + str(len(tmpy)) + '(count ' + str( self.drop_max_pixels_count) + ' thresh ' + str(self.drop_max_pixels_threshold) + '))', True)
+                    self.n_drop += 1
+                    return
 
-        #self.frame.super_rows -= toint(self.dark_frame_mean)
+        if self.do_bad_pixel_map_subtraction:
+
+            t_bad_pixel_map = FrameTimer('bad_pixel_map')
+            t_bad_pixel_map.start()
+            if self.bad_pixel_map == None:
+                self.print_debug('no bad pixel map is available!', True)
+            else:
+                sr = (self.bad_pixel_map < 1).astype(np.int16)
+                #srs = self.frame.super_rows * sr                
+                self.frame.super_rows *= sr
+            t_bad_pixel_map.stop()
+            self.print_debug(t_bad_pixel_map.toString())
+            
+        if self.flip_frame > 0:
+            self.frame.super_rows = np.rot90(self.frame.super_rows, self.flip_frame)
+            #print("shape " + str(np.shape(self.frame.super_rows)))
         
         # do analysis
         # this should ne pass by ref so even if no analysis is made should be fast?
@@ -164,9 +196,6 @@ class FrameWorker(QObject):
         if self.form_busy:
             self.print_debug('form is busy.',force=False)
             self.n_busy += 1
-        elif drop_frame:
-            self.print_debug('dropped frame_2',force=True)
-            self.n_busy += 1            
         else:
             self.print_debug('sending frame', force=False)
             self.emit_data()
@@ -182,6 +211,7 @@ class FrameWorker(QObject):
             self.__t0_ana_sum = 0
             self.__n_ana_sum = 0
             self.n_busy = 0
+            self.n_drop = 0
             self.n_sent = 0
     
         self.emit(SIGNAL('busy'),False)
@@ -215,7 +245,10 @@ class FrameWorker(QObject):
 
             #print (' get_data from frame')
 
-            data = self.frame.get_data(self.selected_asic)
+            # make sure the corret asic is extracted
+            sel_asic = self.selected_asic
+
+            data = self.frame.get_data(sel_asic, self.flip_frame)
 
             self.emit(SIGNAL('new_data'), self.frame_id, data)
 

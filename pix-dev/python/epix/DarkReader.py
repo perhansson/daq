@@ -86,16 +86,32 @@ class DarkFileReader(object):
                 print('[DarkFileReader]: Got ' + str(n_frames) + ', now calculate stats.') 
 
                 # calculate mean for each pixel
-                mean = dark_frame_sum / float(n_frames)
+                mean = np.mean(dark_frames, axis=0)
 
                 # calculate the median
                 median = np.median(dark_frames, axis=0)
+
                 print('[DarkFileReader]: save dark frame mean')
                 print( mean)
                 print('[DarkFileReader]: save dark frame median')
                 print( median)
+
+
+                # find pixels with large std dev
+                std_dev = np.std(dark_frames, axis=0)
+                mean_std_dev = np.mean(std_dev)
+                thresh = 8 * mean_std_dev
+                bad_pixel_map = (std_dev > (thresh)).astype(np.int16)
+
+                print('[DarkFileReader]: noisy pixels median')
+                print( std_dev)
+                print('[DarkFileReader]: mean of std dev ' + str(mean_std_dev) + ' thresh ' + str(thresh))
+                print('[DarkFileReader]: bad pixel map ')
+                print(bad_pixel_map)
+                
+                
                 # save to file
-                np.savez( dark_filename, dark_frame_mean = mean, dark_frame_median = median)
+                np.savez( dark_filename, dark_frame_mean = mean, dark_frame_median = median, dark_frame_bad_pixel_map = bad_pixel_map)
                 ok = True
             
             if ok:

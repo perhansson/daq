@@ -94,6 +94,7 @@ def main():
     form.connect(form, SIGNAL('selectASIC'),frameProcessor.worker.select_asic)
     form.connect(form, SIGNAL('selectAnalysis'),frameProcessor.worker.select_analysis)
     #form.connect(form, SIGNAL('formBusy'),frameProcessor.worker.set_form_busy)
+    form.connect(form, SIGNAL('selectFrameFlips'),frameProcessor.worker.set_flip_frames)
 
 
     # open the control GUI and connection to the DAQ

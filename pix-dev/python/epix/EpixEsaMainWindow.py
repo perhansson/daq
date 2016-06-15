@@ -89,6 +89,13 @@ class EpixEsaMainWindow(MainWindow):
         self.combo_select_asic.setCurrentIndex(self.select_asic + 1)
         self.combo_select_asic.currentIndexChanged['QString'].connect(self.on_select_asic)
 
+        textbox_select_frame_flips_label = QLabel('# 90deg. rotations:')
+        self.combo_select_frame_flips = QComboBox(self)
+        for i in range(4):
+            self.combo_select_frame_flips.addItem(str(i))
+        self.combo_select_frame_flips.setCurrentIndex(1)
+        self.combo_select_frame_flips.currentIndexChanged['QString'].connect(self.on_select_frame_flips)
+
         textbox_integration_label = QLabel('Integrate frames (#):')
         self.textbox_integration = QLineEdit()
         self.textbox_integration.setText(str(self.integration_count))
@@ -108,6 +115,7 @@ class EpixEsaMainWindow(MainWindow):
 
         self.form_layout = QFormLayout()
         self.form_layout.addRow(textbox_select_asic_label, self.combo_select_asic)
+        self.form_layout.addRow(textbox_select_frame_flips_label, self.combo_select_frame_flips)
         self.form_layout.addRow(textbox_select_analysis_label, self.combo_select_analysis) 
         self.form_layout.addRow( textbox_plot_options_label, self.grid_cb)
         self.form_layout.addRow( textbox_integration_label, self.textbox_integration)
@@ -186,6 +194,19 @@ class EpixEsaMainWindow(MainWindow):
         
         except ValueError:
             print('[EpixEsaMainWindow]: \n\n========= WARNING, bad ASIC selection input \"' + str(self.combo_select_asic.currentText()) + '\"\n Need to be an integer only')
+
+    def on_select_frame_flips(self):
+        """ update the selected asic"""
+        if self.debug: print('[EpixEsaMainWindow]: on select asic')
+        try:
+            self.emit(SIGNAL("selectFrameFlips"),  int(str(self.combo_select_frame_flips.currentText())))
+            # reset data in case it's not compatible with the new selection
+            for w in self.plot_widgets:
+                w[0].worker.clear_data()
+                w[0].clear_figure()
+        
+        except ValueError:
+            print('[EpixEsaMainWindow]: \n\n========= WARNING, bad frame flip selection input \"' + str(self.combo_select_frame_flips.currentText()) + '\"\n Need to be an integer only')
 
     def set_integration(self,n):
         """Update the integration count."""

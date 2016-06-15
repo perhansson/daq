@@ -68,6 +68,7 @@ class EpixFrame(PixFrame):
     npix=nx*ny;
     framesize= n_head + n_super_rows*len_super_row/2 + n_tps_words + n_footer_words
     n_asics = 4
+    asic_map = np.array([[2,1],[3,0]])
 
     def __init__(self):
         super(EpixFrame,self).__init__(EpixFrame.nx, EpixFrame.ny, EpixFrame.framesize)        
@@ -97,24 +98,49 @@ class EpixFrame(PixFrame):
             i = EpixFrame.ny/2 + ( k + r)
         return i
 
-    def get_data(self,asic):
+    def get_data(self, asic, rotations=0):
         """Return data for a given asic or the full frame."""
         n_asics = self.get_n_asics()
-        nx = self.get_nx()
-        ny = self.get_ny()
+
+        if asic >= n_asics:
+            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
+            return 
+        
         # see if we want all of them
         if asic < 0:            
             return self.super_rows
-        elif asic == 0:            
+        
+        nx = self.get_nx()
+        ny = self.get_ny()
+        
+        
+        # check if the data frame is rotated, 
+        # if so the asic nr and rows and cols needs to be rotated too
+        sel_asic = asic
+        if rotations > 0:
+            asic_map_rot = np.rot90(self.asic_map,rotations)
+            xr,yr = np.where(asic_map_rot == asic)
+            print ('rotations ' + str(rotations))
+            print ('xr,yr = ' + str(xr) + ',' + str(yr))
+            sel_asic = self.asic_map[xr[0]][yr[0]]
+            print("ROTATION asic " + str(asic) + ' -> ' + str(sel_asic))
+            if rotations%2 != 0:
+                print("flip nx,ny" + str(nx) + ',' + str(ny))
+                ny_new = nx
+                nx = ny
+                ny = ny_new
+
+        print("nx,ny" + str(nx) + ',' + str(ny))
+        if sel_asic == 0:            
             return self.super_rows[ny/2: , nx/2:]
-        elif asic == 1:            
+        elif sel_asic == 1:            
             return self.super_rows[:ny/2 , nx/2:]
-        elif asic == 2:            
+        elif sel_asic == 2:            
             return self.super_rows[:ny/2 , :nx/2]
-        elif asic == 3:            
+        elif sel_asic == 3:            
             return self.super_rows[ny/2: , :nx/2]
         else:
-            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
+            print('ERROR invalid asic nr \"', sel_asic, '\", must be less than ', n_asics )
     
 
     def set_data_fast(self,data):
@@ -167,6 +193,7 @@ class CpixFrame(PixFrame):
     framesize= n_header_words + ny*nx/2 + n_footer_words
     n_asics = 1
     offset_frame_info_word = 14
+    asic_map = [[0]]
 
     def __init__(self):
         super(CpixFrame,self).__init__(CpixFrame.nx, CpixFrame.ny, CpixFrame.framesize)
