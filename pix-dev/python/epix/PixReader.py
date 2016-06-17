@@ -1,13 +1,14 @@
 import sys
 import os
 import time
+
 import numpy as np
-from frame import EpixFrame
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+
 from pix_utils import FrameTimer, get_timer_data
 
-class EpixReader(QThread):
+class BaseReader(QThread):
     """ Base class for reading epix data"""
     debug = False
     def __init__(self, framesize, parent=None):
@@ -48,18 +49,18 @@ class EpixReader(QThread):
 
     def set_form_busy(self,a):
         """ Set busy word."""
-        if EpixReader.debug: print('[EpixReader]: set busy to  ' + str(a) )
+        if BaseReader.debug: print('[BaseReader]: set busy to  ' + str(a) )
         self.form_busy = a
 
     def set_integration(self,count):
         """ Set number of frames to integrate."""
-        if EpixReader.debug: print('[EpixReader]: set integration to ', count, ' frames')
+        if BaseReader.debug: print('[BaseReader]: set integration to ', count, ' frames')
         self.integrate = count
 
     def set_state(self, state):
-        if EpixReader.debug: print('[EpixReader]: set state \"', state,'\" from \"', self.state,'\"')
+        if BaseReader.debug: print('[BaseReader]: set state \"', state,'\" from \"', self.state,'\"')
         if state != 'Running' and state != 'Stopped':
-            print('[EpixReader]: \n\nERROR: Invalid state change to ', state)
+            print('[BaseReader]: \n\nERROR: Invalid state change to ', state)
         else:
             self.state = state
             self.emit(SIGNAL("newState"),self.state)
@@ -68,26 +69,26 @@ class EpixReader(QThread):
     def change_state(self):
         """ Change state of the GUI acquizition"""
         
-        if EpixReader.debug: print('[EpixReader]: changing state from ', self.state)
+        if BaseReader.debug: print('[BaseReader]: changing state from ', self.state)
         if self.state == 'Stopped':
             self.set_state('Running')
         elif self.state == 'Running':
             self.set_state('Stopped')
         else:
-            print('[EpixReader]: Wrong state ', self.state)
+            print('[BaseReader]: Wrong state ', self.state)
             sys.exit(1)
 
 
     #def select_dark_file(self,t):
     #    """Select a new dark file."""
-    #    #if EpixReader.debug: 
-    #    print('[EpixReader]: select dark file ' + t)
+    #    #if BaseReader.debug: 
+    #    print('[BaseReader]: select dark file ' + t)
     #    self.add_dark_file(t)
 
     def emit_data(self, frame_id, data):
         """Send out the data to connected slots."""
 
-        #print('[EpixReader]: emit data (' + str(QThread.currentThread()) + ')')
+        #print('[BaseReader]: emit data (' + str(QThread.currentThread()) + ')')
         t0 = FrameTimer('emit ' + str(frame_id))
         t0.start()
 
@@ -102,10 +103,10 @@ class EpixReader(QThread):
         # timer stuff
         t0.stop()
         self.timers.append(t0)
-        #print('[EpixReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
+        #print('[BaseReader]: emit data done, ' + t0.toString() + ' (' + str(QThread.currentThread()) + ')')
         if self.n_emit % 10 == 0:
             tot, n = get_timer_data(self.timers)
-            print('[EpixReader]: n_emit {0} n_emit_busy {1} i.e. {2}% busy in {3} sec/frame ({4}) '.format( self.n_emit, self.n_emit_busy, 100*float(self.n_emit_busy)/float(self.n_emit_busy + self.n_emit), float(tot)/float(n), str(QThread.currentThread())))
+            print('[BaseReader]: n_emit {0} n_emit_busy {1} i.e. {2}% busy in {3} sec/frame ({4}) '.format( self.n_emit, self.n_emit_busy, 100*float(self.n_emit_busy)/float(self.n_emit_busy + self.n_emit), float(tot)/float(n), str(QThread.currentThread())))
             del self.timers[:]
             self.n_emit = 0
             self.n_emit_busy = 0

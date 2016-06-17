@@ -430,7 +430,7 @@ class ImageWorker(PlotWorker):
     
     def new_data(self, frame_id ,data):
         """Process the data and send to GUI when done."""
-        self.print_thread('new_data')
+        self.print_thread(self.name + ' new_data')
         #print('ImageWorker: process frame and send shape ' + str(np.shape(data)))
         if self.d == None:
             self.d = data
@@ -441,7 +441,7 @@ class ImageWorker(PlotWorker):
         if self.n >= self.n_integrate:
             self.emit(SIGNAL('data'), frame_id, self.d)
             self.n = 0
-            self.d = None
+            self.clear_data()
 
         self.print_thread('new_data DONE')
     
@@ -451,11 +451,14 @@ class ImageWidget(PlotWidget):
     def __init__(self, name, parent=None, show=False, n_integrate = 1):
         PlotWidget.__init__(self,name, parent, show)
         self.d = None
-        self.worker = ImageWorker(self.name, parent, n_integrate)
+        self.worker = self.init_image_worker(parent, n_integrate)
         self.worker.moveToThread( self.thread )
-        #self.thread = ImageWorker(self.name, None, n_integrate)
         self.connect(self.worker, SIGNAL('data'), self.on_draw)
         self.worker.print_thread('worker init')
+
+    def init_image_worker(self, parent, n_integrate):
+        """Create and return the worker."""
+        return ImageWorker(self.name, parent, n_integrate)
 
     def on_draw(self, frame_id, data):
 
@@ -499,15 +502,17 @@ class ImageWidget(PlotWidget):
 
 
         # Create plot adjustments
+        self.zscale_range_min = -50000
+        self.zscale_range_max =  50000
         self.zscale_min = 0
         self.zscale_max = 500
         self.slider_zscale_min = QSlider(Qt.Vertical)
-        self.slider_zscale_min.setRange(-16384,16384)
+        self.slider_zscale_min.setRange( self.zscale_range_min, self.zscale_range_max)
         self.slider_zscale_min.setValue(self.zscale_min)
         self.slider_zscale_min.setTickPosition(QSlider.TicksLeft)
         self.slider_zscale_min.setTickInterval(1000)
         self.slider_zscale_max = QSlider(Qt.Vertical)
-        self.slider_zscale_max.setRange(-16384,16384)
+        self.slider_zscale_max.setRange(self.zscale_range_min, self.zscale_range_max)
         self.slider_zscale_max.setValue(self.zscale_max)
         self.slider_zscale_max.setTickPosition(QSlider.TicksBothSides)
         self.slider_zscale_max.setTickInterval(1000)
@@ -542,6 +547,63 @@ class ImageWidget(PlotWidget):
         vbox_zscale.addLayout(hbox3_zscale)
 
         return vbox_zscale
+
+
+class FrameDiffImageWorker(ImageWorker):
+
+    def __init__(self, name, parent = None, n_integrate = 1):    
+        ImageWorker.__init__(self, name, parent, n_integrate)
+        self.frames = {}
+        self.n_frames = {}
+
+    def clear_data(self):
+        """Clear the data object"""
+        self.frames = {}
+        self.n_frames = {}
+    
+    def new_data(self, frame_id, frame_type, data):
+        """Process the data and send to GUI when done."""
+        self.print_thread(self.name + ' new_data frame_type ' +str(frame_type))
+        #print(self.n_frames)
+        #print(self.frames)
+        
+        # check that 1/A is there before doing anything
+        if frame_type == 0 and 1 not in self.frames:
+            self.clear_data()        
+            return 
+        
+        if frame_type in self.frames:
+            self.frames[frame_type] += data
+            self.n_frames[frame_type] += 1
+        else:
+            # need to copy!?!? not thread safe!?
+            self.frames[frame_type] = np.copy(data)
+            self.n_frames[frame_type] = 1
+        
+        # update frame count when they are the same
+        if len(self.n_frames) == 2:
+            if self.n_frames[0] == self.n_frames[1]:
+                self.n += 1
+        
+        # check if integration limit is reached and send difference
+        if  self.n >= self.n_integrate:
+            self.emit(SIGNAL('data'), frame_id, self.frames[1]-self.frames[0])
+            # reset
+            self.n = 0
+            self.clear_data()
+        
+        self.print_thread('new_data DONE')
+
+
+class FrameDiffImageWidget(ImageWidget):
+    """Show image of difference between two frames."""
+
+    def __init__(self, name, parent=None, show=False, n_integrate = 1):        
+        ImageWidget.__init__(self,name, parent, show)
+
+    def init_image_worker(self, parent, n_integrate):
+        """Create and return the worker."""
+        return FrameDiffImageWorker(self.name, parent, n_integrate)
 
 
 class StripWorker(PlotWorker):

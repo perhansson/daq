@@ -3,7 +3,6 @@ This file contains a reader of ePix data from a file.
 """
 import time
 import numpy as np
-from EpixReader import *
 
 class FileReader(object):
     """ Read data from a file"""

@@ -6,7 +6,6 @@ Classes to handle data formats for different cameras.
 
 import time
 import numpy as np
-from epix import Epix100a, fmap
 from pix_utils import FrameTimer as timer
 
 
@@ -69,6 +68,7 @@ class EpixFrame(PixFrame):
     npix=nx*ny;
     framesize= n_head + n_super_rows*len_super_row/2 + n_tps_words + n_footer_words
     n_asics = 4
+    asic_map = np.array([[2,1],[3,0]])
 
     def __init__(self):
         super(EpixFrame,self).__init__(EpixFrame.nx, EpixFrame.ny, EpixFrame.framesize)        
@@ -98,24 +98,44 @@ class EpixFrame(PixFrame):
             i = EpixFrame.ny/2 + ( k + r)
         return i
 
-    def get_data(self,asic):
+    def get_data(self, asic, rotations=0):
         """Return data for a given asic or the full frame."""
         n_asics = self.get_n_asics()
-        nx = self.get_nx()
-        ny = self.get_ny()
+
+        if asic >= n_asics:
+            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
+            return 
+        
         # see if we want all of them
         if asic < 0:            
             return self.super_rows
-        elif asic == 0:            
+        
+        nx = self.get_nx()
+        ny = self.get_ny()
+        
+        
+        # check if the data frame is rotated, 
+        # if so the asic nr and rows and cols needs to be rotated too
+        sel_asic = asic
+        if rotations > 0:
+            asic_map_rot = np.rot90(self.asic_map,rotations)
+            xr,yr = np.where(asic_map_rot == asic)
+            sel_asic = self.asic_map[xr[0]][yr[0]]
+            if rotations%2 != 0:
+                ny_new = nx
+                nx = ny
+                ny = ny_new
+
+        if sel_asic == 0:            
             return self.super_rows[ny/2: , nx/2:]
-        elif asic == 1:            
+        elif sel_asic == 1:            
             return self.super_rows[:ny/2 , nx/2:]
-        elif asic == 2:            
+        elif sel_asic == 2:            
             return self.super_rows[:ny/2 , :nx/2]
-        elif asic == 3:            
+        elif sel_asic == 3:            
             return self.super_rows[ny/2: , :nx/2]
         else:
-            print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
+            print('ERROR invalid asic nr \"', sel_asic, '\", must be less than ', n_asics )
     
 
     def set_data_fast(self,data):
@@ -167,6 +187,8 @@ class CpixFrame(PixFrame):
     npix=nx*ny
     framesize= n_header_words + ny*nx/2 + n_footer_words
     n_asics = 1
+    offset_frame_info_word = 14
+    asic_map = [[0]]
 
     def __init__(self):
         super(CpixFrame,self).__init__(CpixFrame.nx, CpixFrame.ny, CpixFrame.framesize)
@@ -174,13 +196,16 @@ class CpixFrame(PixFrame):
         # store counter id
         self.counter_id = -1
 
-        # store asic nr
-        self.asic_id = -1
+        # store asic id
+        self.asic = -1
     
         # used to store corrected values, see correct function
         self.nx_offset = 16
         nx = self.get_nx()
         self.doff = np.zeros( np.shape(self.super_rows[:,nx-self.nx_offset:]) )
+
+        # counter type
+        self.counter_type = -1
 
 
     def get_n_asics(self):
@@ -210,6 +235,15 @@ class CpixFrame(PixFrame):
         else:
             print('ERROR invalid asic nr \"', asic, '\", must be less than ', n_asics )
 
+    def __get_counter_type_from_data(self, data):
+        """Extract counter type from the data."""
+        return (data[CpixFrame.offset_frame_info_word] >> 4) & 0x00000001         
+
+    def __get_asic_from_data(self, data):
+        """Extract ASIC ID from the data."""
+        return data[CpixFrame.offset_frame_info_word] & 0x0000000F     
+
+
     def set_data_fast(self,data):
         """ Organize into raw super rows """
         #print('set super rows')
@@ -220,6 +254,19 @@ class CpixFrame(PixFrame):
         i = 0
         ny = self.get_ny()
         nx = self.get_nx()
+
+        # find the counter type
+        self.counter_type = self.__get_counter_type_from_data(data)
+
+        # find the asic
+        self.asic = self.__get_asic_from_data(data)
+
+        if self.counter_type != 0 and self.counter_type != 1:
+            raise RuntimeError('counter type ' + str(self.counter_type) + ' is undefined.(asic ' + self.asic + ' from  word ' + str(data[offset_frame_info_word]) + ')')
+
+        if self.asic < 0 or self.asic >=4:
+            raise RuntimeError('asic ' + str(self.asic) + ' is undefined. ( word ' + str(data[offset_frame_info_word]) + ' counter ' + str(self.counter_type) + ')')
+
 
         # find the pixel data only
         offset_start = CpixFrame.n_header_words 
@@ -270,3 +317,7 @@ class CpixFrame(PixFrame):
         # now assign back to the original object
         self.super_rows[:,nx-self.nx_offset:] = self.doff
         
+
+    def get_counter_type(self):
+        """Return counter type for the current frame."""
+        return self.counter_type

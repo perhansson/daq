@@ -3,12 +3,12 @@ This file contains a reader of ePix data from a file.
 """
 import time
 import numpy as np
-from EpixReader import *
+from PixReader import BaseReader
 
-class EpixFileReader(EpixReader):
+class FileReader(BaseReader):
     """ Read epix data from a file"""
     def __init__(self,filename, framesize, parent=None):
-        EpixReader.__init__(self, framesize, parent)
+        BaseReader.__init__(self, framesize, parent)
         self.filename = filename
         # start the thread
         self.start()
@@ -37,7 +37,7 @@ class EpixFileReader(EpixReader):
 
                     # wait until state is correct
                     if self.state != 'Running':
-                        if EpixReader.debug: print('EpixFileReader thread waiting')
+                        if BaseReader.debug: print('EpixFileReader thread waiting')
                         self.sleep(1)
                         continue
 
@@ -55,12 +55,12 @@ class EpixFileReader(EpixReader):
                     # read the whole frame, it's really fast
                     ret = np.fromfile(f, dtype=np.uint32, count=(1*fs) )
 
-                    if EpixReader.debug: print('read data in ', str( time.clock() - t0) + ' s')
+                    if BaseReader.debug: print('read data in ', str( time.clock() - t0) + ' s')
                     
 
                     #print ('got a frame of data from file ', self.filename, ' with shape: ', ret.shape)
                     if fs == self.framesize:
-                        if EpixReader.debug: print (n, ' got frame with ', fs, ' words')
+                        if BaseReader.debug: print (n, ' got frame with ', fs, ' words')
 
                         # send the data
                         self.emit_data( n_frames, ret )                        

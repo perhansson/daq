@@ -3,14 +3,17 @@ This file contains a reader of ePix data from shared memory using generic daq to
 """
 import os
 import sys
-from EpixReader import *
+import time
+from PyQt4.QtCore import QThread
+from PixReader import BaseReader
+from pix_utils import FrameTimer, get_timer_data
 #sys.path.append(os.path.join(os.environ.get('DAQ'),python))
 import pythonDaq
 
-class EpixShMemReader(EpixReader):
+class ShMemReader(BaseReader):
     """Read epix data from shared memory"""    
-    def __init__(self, framesize, parent=None):
-        EpixReader.__init__(self, frame_size, parent)
+    def __init__(self, frame_size, parent=None):
+        BaseReader.__init__(self, frame_size, parent)
 
         # timer list
         self.sh_timers = []
@@ -36,7 +39,7 @@ class EpixShMemReader(EpixReader):
 
             # wait until state is correct
             if self.state != 'Running':
-                if EpixReader.debug: print('EpixShMemReader thread waiting')
+                if BaseReader.debug: print('EpixShMemReader thread waiting')
                 self.sleep(1)
                 continue
 
@@ -52,10 +55,10 @@ class EpixShMemReader(EpixReader):
 
             # first word is frame length
             if data[0] == 0:
-                if EpixReader.debug: print('Read n ', n, ' found empty frame')
+                if BaseReader.debug: print('Read n ', n, ' found empty frame')
                 time.sleep(0.001)            
             elif data[0] > 0:
-                if EpixReader.debug: print('Read n ', n, ' found ', data[0], ' bytes with type ', data[1])
+                if BaseReader.debug: print('Read n ', n, ' found ', data[0], ' bytes with type ', data[1])
                 if data[1] == 0:
                     if data[0] == self.framesize:
 

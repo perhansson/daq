@@ -1,5 +1,6 @@
 setenv MON $PWD
-set DAQ="/home/epix/run_software"
+#set DAQ="/home/epix/run_software"
+set DAQ="/home/epix/devel/epix_software_trunk_devel"
 if($#argv > 1) then
     set DAQ = $argv[1]
 endif

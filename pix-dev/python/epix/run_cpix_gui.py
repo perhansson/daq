@@ -9,13 +9,13 @@ from PyQt4.QtCore import *
 from DarkReader import DarkFileReader
 from PixFileReader import FileReader
 from PixShMemReader import ShMemReader
-from EpixEsaMainWindow import *
+from CpixMainWindow import *
 from daq_worker import DaqWorker
-from frame_worker import FrameWorkerController
+from frame_worker import CpixFrameWorkerController
 import frame as camera_frames
 
 def get_args():
-    parser = argparse.ArgumentParser('ePix online monitoring.')
+    parser = argparse.ArgumentParser('cPix online monitoring.')
     parser.add_argument('--light','-l', help='Data file with exposure.')
     parser.add_argument('--dark','-d', help='Data file with no signal (dark file).')
     parser.add_argument('--go','-g',action='store_true',help='start acquisition')
@@ -34,8 +34,8 @@ def main():
     app = QApplication(sys.argv)
 
     # get the frame type from camera arg
-    camera = 'epix100a'
-    frame = camera_frames.EpixFrame()
+    camera = 'cpix'
+    frame = camera_frames.CpixFrame()
 
     # create the data reader
     reader = None
@@ -60,7 +60,7 @@ def main():
     reader.set_state('Stopped')
 
     #### create the data frame processor
-    frameProcessor = FrameWorkerController('frame_processor', frame)
+    frameProcessor = CpixFrameWorkerController('cpix_frame_processor', frame)
 
     # connect the data frame from reader to processor
     reader.connect(reader, SIGNAL('data_frame'), frameProcessor.worker.process)
@@ -69,7 +69,7 @@ def main():
     frameProcessor.worker.select_asic( args.asic )
 
     #### create the main GUI
-    form = EpixEsaMainWindow(parent=None, debug=False)
+    form = CpixMainWindow(parent=None, debug=False)
 
     # this might be a little weird but I need to connect signals firectly 
     # from widgets started inside the gui to the frame processor...
@@ -94,14 +94,15 @@ def main():
     form.connect(form, SIGNAL('selectASIC'),frameProcessor.worker.select_asic)
     form.connect(form, SIGNAL('selectAnalysis'),frameProcessor.worker.select_analysis)
     #form.connect(form, SIGNAL('formBusy'),frameProcessor.worker.set_form_busy)
-    form.connect(form, SIGNAL('selectFrameFlips'),frameProcessor.worker.set_flip_frames)
 
 
     # open the control GUI and connection to the DAQ
     # if we are reading from a file then don't use the daq worker
+    daq_worker  = None
     if not args.light:
-        form.connect_daq_worker_gui( DaqWorker() )
-    
+        daq_worker  = DaqWorker()    
+        form.connect_daq_worker_gui( daq_worker )
+            
     # add a dark frame if supplied
     if args.dark != None:
         form.textbox_dark_file.setText( args.dark)
@@ -119,7 +120,7 @@ def main():
         reader.set_state('Running')
 
 
-    print ('[run_epix_gui]: main thread ' , app.instance().thread())
+    print ('[run_cpix_gui]: main thread ' , app.instance().thread())
 
 
     # run the app

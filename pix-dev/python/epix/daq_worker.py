@@ -21,10 +21,26 @@ class DaqWorker(QThread):
         self.running = True
     
     def __del__(self):
+        self.quit()
+    
+    def quit_thread(self):
+        """Controlled quit of the thread."""
         self.running = False
         self.daq_client.disable()
-        self.wait()
-    
+        self.quit()
+        can_exit = self.wait(1000)        
+        #can_exit = True
+        if can_exit:
+            print('[DaqWorker] : thread quit successfully')            
+        else:
+            print('[DaqWorker] :  thread quit timed out')
+            self.terminate()
+            can_exit = self.wait(1000)        
+            if can_exit:
+                print('[DaqWorker] : thread terminated successfully')            
+            else:
+                print('[DaqWorker] : ERROR thread failed to die')    
+
     def run(self):
         """Called once by Qt after things are setup."""
         
@@ -50,7 +66,7 @@ class DaqWorker(QThread):
         s = self.daq_client.daqReadStatusNode('DataFileCount')
         m = None
         if s != None:
-            m = re.match('.*(\d+)\s+-\s+(\d+)\s+Hz.*',s)
+            m = re.match('(\d+)\s+-\s+(\d+)\s+Hz.*',s)
         if m != None:
             n = int(m.group(1))
             r = float(m.group(2))
@@ -116,6 +132,7 @@ class DaqWorker(QThread):
         #defaults
         rate_str = 'Beam'
         count = 10000000
+        trigtype = 'Evr Running'
         
         # custom supplied
         if params != None:
@@ -123,27 +140,23 @@ class DaqWorker(QThread):
                 self.open_file(params['filepath'])
             if params['rate'] != None and params['rate'] != '':
                 rate_str = params['rate']
-            if params['count'] != None and  params['count'] > 0:
+            if params['count'] != None:
                 count = params['count']
-        
+            if params['trigtype'] != None:
+                trigtype = params['trigtype']
                 
         # set the run parameters
-        print('rate_str ' + rate_str + ' count ' + str(count))
+        print('trigtype ' + trigtype + ' rate_str ' + rate_str + ' count ' + str(count))
         pythonDaq.daqSetRunParameters(rate_str, count)
 
         # start the run
-        if rate_str == 'Beam':
-            self.set_run_state('Evr Running')
-        elif 'Hz' in rate_str:
-            self.set_run_state('swRunning')
-        else:
-            raise NotImplementedError('this run string ' + rate_str + ' is invalid')
+        self.set_run_state(trigtype)
     
     def stop_run(self):
         """Stop a run. """                
         self.set_run_state('Stopped')        
         self.close_file()
-        self.emit('stopped_run')
+        self.send_stats()
     
     def open_file(self,filepath):
         """Open a data file."""

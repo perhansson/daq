@@ -6,7 +6,7 @@ import frame as camera_frame
 from pix_utils import FrameTimer, get_timer_data
 from PixDataFileReader import FileReader as reader
 
-class DarkReader(object):
+class DarkFileReader(object):
     """ Read frames from file"""
     debug = False
     def __init__(self, frame_type):
@@ -31,7 +31,7 @@ class DarkReader(object):
         self.reader.close()
     
 
-    def create_dark_file(self, filename, maxFrames=10, alg='median'):
+    def create_dark_file(self, filename, maxFrames=100, alg='median'):
         """ Process dark file """
         print('[DarkReader]: Adding dark file from', filename)
         dark_frame_sum = None
@@ -79,35 +79,51 @@ class DarkReader(object):
             # check that we got frames at all
             ok = False
             if n_frames <= 0:
-                print('[EpixReader]: ERROR: no dark frames where found in file.')
+                print('[DarkFileReader]: ERROR: no dark frames where found in file.')
             elif n_frames > 0 and n_frames < maxFrames:
-                print('[EpixReader]: WARNING: did not find all {0} frames, only got {1}'.format(maxFrames, n_frames))
+                print('[DarkFileReader]: WARNING: did not find all {0} frames, only got {1}'.format(maxFrames, n_frames))
             else:
-                print('[EpixReader]: Got ' + str(n_frames) + ', now calculate stats.') 
+                print('[DarkFileReader]: Got ' + str(n_frames) + ', now calculate stats.') 
 
                 # calculate mean for each pixel
-                mean = dark_frame_sum / float(n_frames)
+                mean = np.mean(dark_frames, axis=0)
 
                 # calculate the median
                 median = np.median(dark_frames, axis=0)
-                print('[EpixReader]: save dark frame mean')
+
+                print('[DarkFileReader]: save dark frame mean')
                 print( mean)
-                print('[EpixReader]: save dark frame median')
+                print('[DarkFileReader]: save dark frame median')
                 print( median)
+
+
+                # find pixels with large std dev
+                std_dev = np.std(dark_frames, axis=0)
+                mean_std_dev = np.mean(std_dev)
+                thresh = 8 * mean_std_dev
+                bad_pixel_map = (std_dev > (thresh)).astype(np.int16)
+
+                print('[DarkFileReader]: noisy pixels median')
+                print( std_dev)
+                print('[DarkFileReader]: mean of std dev ' + str(mean_std_dev) + ' thresh ' + str(thresh))
+                print('[DarkFileReader]: bad pixel map ')
+                print(bad_pixel_map)
+                
+                
                 # save to file
-                np.savez( dark_filename, dark_frame_mean = mean, dark_frame_median = median)
+                np.savez( dark_filename, dark_frame_mean = mean, dark_frame_median = median, dark_frame_bad_pixel_map = bad_pixel_map)
                 ok = True
             
             if ok:
-                print('[EpixReader]: Dark file created.')
+                print('[DarkFileReader]: Dark file created.')
             else:
-                print('[EpixReader]: ERROR: Dark file not created.')
+                print('[DarkFileReader]: ERROR: Dark file not created.')
         
         else:
             # the dark file summary exists
-            print ('[EpixReader]: dark file exists ', dark_filename)
+            print ('[DarkFileReader]: dark file exists ', dark_filename)
             
-        print( '[EpixReader]: Done loading dark frame')
+        print( '[DarkFileReader]: Done loading dark frame')
     
 
     def set_frame_sleep(self, val_msec):

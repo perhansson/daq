@@ -3,19 +3,23 @@ import matplotlib.pyplot as mpl
 
 
 #f = np.load('loght_worker_frame_1.npz')
-f = np.load('dark_worker_frame_1.npz')
+#f = np.load('dark_worker_frame_1.npz')
+f = np.load('A_136.npz')
+fb = np.load('B_136.npz')
 
 print(f.files)
 
-print f['dmean']
+print f['A']
+print fb['B']
 
 
 fig = mpl.figure(1)
 ax1 = fig.add_subplot(221)
-ax1.imshow(f['dmean'])
+ax1.imshow(f['A'])
+
 
 ax2 = fig.add_subplot(222)
-ax2.imshow(f['dmean'][356:,384:])
+ax2.imshow(fb['B']) #][356:,384:])
 
 fig.show()
 
