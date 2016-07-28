@@ -24,8 +24,8 @@ class FrameWorker(QObject):
         self.drop_bad_frames_2 = False
         self.do_dark_subtraction = True
         self.do_bad_pixel_map_subtraction = True
-        self.drop_max_pixels_threshold = 100
-        self.drop_max_pixels_count = 1000
+        self.drop_max_pixels_threshold = 100000
+        self.drop_max_pixels_count = 10000000
         self.flip_frame = 1
         self.n_sent = 0
         self.n_drop = 0

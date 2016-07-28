@@ -93,7 +93,7 @@ class EpixEsaMainWindow(MainWindow):
         self.combo_select_frame_flips = QComboBox(self)
         for i in range(4):
             self.combo_select_frame_flips.addItem(str(i))
-        self.combo_select_frame_flips.setCurrentIndex(1)
+        self.combo_select_frame_flips.setCurrentIndex(3)
         self.combo_select_frame_flips.currentIndexChanged['QString'].connect(self.on_select_frame_flips)
 
         textbox_integration_label = QLabel('Integrate frames (#):')

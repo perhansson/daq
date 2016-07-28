@@ -35,6 +35,8 @@ class ShMemReader(BaseReader):
         # number of frames
         n_frames = 0
 
+
+
         while True:
 
             # wait until state is correct
@@ -62,20 +64,25 @@ class ShMemReader(BaseReader):
                 if data[1] == 0:
                     if data[0] == self.framesize:
 
-                        # send the data
-                        #self.send_data( data[2] )
-                        self.emit_data( n_frames, data[2] )
-
                         # found a frame of the right size
                         n_frames += 1
-                        
-                        # timers
-                        t0.stop()
-                        self.sh_timers.append(t0)
-                        if n_frames % 10 == 0:
-                            tot, n = get_timer_data(self.sh_timers)
-                            print('[EpixShReader]: n_frames {0} with {1} sec/frame ({2}) '.format( n_frames, float(tot)/float(n), str(QThread.currentThread())))
-                            del self.sh_timers[:]
+
+                        # drop all but every so many frames -> hack
+                        if n_frames % 1 == 0:
+
+
+                            # send the data
+                            #self.send_data( data[2] )
+                            self.emit_data( n_frames, data[2] )
+
+
+                            # timers
+                            t0.stop()
+                            self.sh_timers.append(t0)
+                            if n_frames % 10 == 0:
+                                tot, n = get_timer_data(self.sh_timers)
+                                print('[EpixShReader]: n_frames {0} with {1} sec/frame ({2}) '.format( n_frames, float(tot)/float(n), str(QThread.currentThread())))
+                                del self.sh_timers[:]
                             
                 else:
                     print('Read n ', n, ' got type  ', data[1])

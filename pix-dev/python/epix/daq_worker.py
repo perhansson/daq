@@ -114,7 +114,8 @@ class DaqWorker(QThread):
     def set_run_parameters(self,run_type='',rate=1,count=10):
         """Set parameters for the run."""
         if run_type == 'dark':
-            rate_str = 'Dark'
+            #rate_str = 'Dark'
+            rate_str = '10Hz'
         elif run_type == 'beam':
             rate_str = 'Beam'
             count = 10000000
