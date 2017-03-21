@@ -3,10 +3,11 @@ Emulate an oscilloscope.  Requires the animation API introduced in
 matplotlib 1.0 SVN.
 """
 import numpy as np
+import matplotlib
+matplotlib.use('TKAgg')
 from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
 
 class Scope(object):
     def __init__(self, ax, maxt=2, dt=0.02):
